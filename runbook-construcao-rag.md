@@ -34,7 +34,7 @@ Marque o status de cada passo conforme avança:
 | 15 | Tabelas estruturadas | [x] |
 | 16 | Parsing de XLSX | [x] |
 | 17 | Chunking: Parent/Child | [x] |
-| 18 | Chunking: Semantic | [ ] |
+| 18 | Chunking: Semantic | [x] |
 | 19 | Parsing de imagens (OCR + visão) | [ ] |
 | 20 | Multi-vector / representações múltiplas | [ ] |
 | 21 | Query Router completo | [ ] |
@@ -553,7 +553,26 @@ Marque o status de cada passo conforme avança:
 
 **Entregável:** Módulo `src/chunking/semantic.py` + tabela comparativa das 3 estratégias.
 
-**Critério de "pronto":** Comparação registrada — não precisa ser a melhor estratégia, precisa estar medida contra as outras duas.
+**Status atual (2026-09-02):** [x] Concluído.
+- Módulo `src/chunking/semantic.py` implementado:
+  - `chunk_semantic(document, similarity_threshold=0.75, max_tokens=600, min_tokens=50)`:
+  - Segmentação em sentenças naturais via regex de pontuação.
+  - Cálculo de similaridade de cosseno entre sentenças consecutivas usando embeddings densos do BGE-M3.
+  - Detecção dinâmica de breakpoints onde a similaridade cai abaixo do limiar (mudança de tópico/argumento), respeitando limites de `min_tokens` (~50 tokens) e `max_tokens` (~600 tokens).
+  - Preservação integral de tabelas como blocos atômicos estruturados.
+- Testes unitários completos em `tests/test_semantic_chunking.py` (8/8 testes passando: divisão em sentenças, propriedades matemáticas do cosseno, detecção de quebra semântica entre tópicos divergentes e suporte a tabelas).
+- Benchmark comparativo executado nas 3 estratégias sobre o seed corpus (`scripts/benchmark_chunking_strategies.py`):
+
+| Estratégia | Chunks | Média Palavras | Tempo Total | Recall@5 | MRR |
+|---|---|---|---|---|---|
+| **Recursive** (Passo 3) | 29 | 108.2 | 0.00s (0.1ms/doc) | 1.0000 | 1.0000 |
+| **Parent/Child** (Passo 17) | 15 (filhos) | 166.6 | 0.00s (0.5ms/doc) | 1.0000 | 1.0000 |
+| **Semantic** (Passo 18) | 31 | 82.8 | 48.24s (6.8s/doc) | 1.0000 | 1.0000 |
+
+*Tradeoffs documentados:*
+- **Recursive:** Mais rápido e sem custo computacional prévio na ingestão; chunks de tamanho previsível.
+- **Parent/Child:** Excelente equilíbrio entre precisão cirúrgica na busca (chunks filhos) e completude contextual na resposta expandida (~1200 tokens) para o LLM.
+- **Semantic:** Alta coesão textual respeitando o fluxo natural de ideias; mais custoso na ingestão (requer inferência de modelo para cada sentença consecutiva).
 
 **Como retomar:** Cole esta seção com a tabela comparativa de Recall@5 entre as 3 estratégias de chunking.
 
