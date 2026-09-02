@@ -1,0 +1,268 @@
+[
+  {
+    "id": "gd-01",
+    "question": "O que é RAG e quais são seus dois componentes principais?",
+    "expected_chunk_ids": ["730440d1-8c15-44d2-a14a-b1efb14361af", "1d3054be-d70c-4e18-ae6b-bfffd35fddd7"],
+    "source_doc": "01_introducao_rag.txt",
+    "notes": "Definição de RAG: sistema de recuperação + LLM"
+  },
+  {
+    "id": "gd-02",
+    "question": "Quais são as três etapas do pipeline RAG: ingestão, retrieval e geração?",
+    "expected_chunk_ids": ["730440d1-8c15-44d2-a14a-b1efb14361af", "a181ac61-6cdd-44a1-ab03-fda707413c53"],
+    "source_doc": "01_introducao_rag.txt",
+    "notes": "Pipeline RAG 3 etapas"
+  },
+  {
+    "id": "gd-03",
+    "question": "Quais são as vantagens do RAG sobre LLMs sem retrieval?",
+    "expected_chunk_ids": ["a24a5f52-e02c-4715-8804-a548c23c95d4"],
+    "source_doc": "01_introducao_rag.txt",
+    "notes": "Vantagens do RAG: atualização, rastreabilidade"
+  },
+  {
+    "id": "gd-04",
+    "question": "Por que o retrieval é o componente mais crítico de um sistema RAG?",
+    "expected_chunk_ids": ["45bd280b-9a94-4ece-ba38-0bffd23c5797"],
+    "source_doc": "01_introducao_rag.txt",
+    "notes": "Recall@5 como métrica de retrieval"
+  },
+  {
+    "id": "gd-05",
+    "question": "O que são embeddings e como representam texto numericamente?",
+    "expected_chunk_ids": ["1fa5bf5e-5d70-4484-b175-94029f69d7c2", "9bc2abdd-7f54-41c4-8738-8596fbd01000"],
+    "source_doc": "02_embeddings_busca_vetorial.txt",
+    "notes": "Embeddings como vetores de alta dimensão"
+  },
+  {
+    "id": "gd-06",
+    "question": "O que é similaridade coseno e como é usada para encontrar documentos similares?",
+    "expected_chunk_ids": ["c2635cf1-acf0-495d-a335-943559edf02a", "2f0bb7ac-42ad-4a65-880b-25613e25bbe4"],
+    "source_doc": "02_embeddings_busca_vetorial.txt",
+    "notes": "Cosine similarity para busca vetorial"
+  },
+  {
+    "id": "gd-07",
+    "question": "Qual banco de dados vetorial é usado nesta plataforma e quais são suas principais características?",
+    "expected_chunk_ids": ["37a12271-f097-4198-94a1-af59b99d51a7"],
+    "source_doc": "02_embeddings_busca_vetorial.txt",
+    "notes": "Qdrant: escrito em Rust, payload filtering"
+  },
+  {
+    "id": "gd-08",
+    "question": "Por que é necessário dividir documentos em chunks antes de indexar em sistemas RAG?",
+    "expected_chunk_ids": ["dd69e77c-ce4b-4734-8565-93d0ea779ef6", "967e525f-6d0a-48cf-8c27-550e2e4deacc"],
+    "source_doc": "03_chunking.txt",
+    "notes": "Motivação do chunking: limite de contexto dos LLMs"
+  },
+  {
+    "id": "gd-09",
+    "question": "O que é Recursive Character Splitter e como funciona?",
+    "expected_chunk_ids": ["4b9304a2-bbe6-4c58-b68b-00da90922c96"],
+    "source_doc": "03_chunking.txt",
+    "notes": "Recursive splitter por separadores hierárquicos"
+  },
+  {
+    "id": "gd-10",
+    "question": "O que é Parent-Child chunking e qual vantagem oferece em relação ao chunking simples?",
+    "expected_chunk_ids": ["6d29c77e-714c-4e0a-8aa0-ac448662a377"],
+    "source_doc": "03_chunking.txt",
+    "notes": "Parent-Child: indexa pequenos, passa grandes para o LLM"
+  },
+  {
+    "id": "gd-11",
+    "question": "Quais são os parâmetros típicos de max_tokens e overlap para chunking em documentos corporativos?",
+    "expected_chunk_ids": ["c38500dc-d3cc-4153-8cc5-3ac173db9eea"],
+    "source_doc": "03_chunking.txt",
+    "notes": "512 tokens, 64 overlap — valores recomendados"
+  },
+  {
+    "id": "gd-12",
+    "question": "Por que o RRF é chamado de parameter-free e o que isso significa na prática?",
+    "expected_chunk_ids": ["a68bd489-c711-4f99-9dbd-2e017905ebfa"],
+    "source_doc": "04_retrieval_hibrido_rrf.txt",
+    "notes": "RRF não requer normalização de escalas entre canais"
+  },
+  {
+    "id": "gd-13",
+    "question": "Por que avaliar o sistema RAG offline antes de qualquer mudança no pipeline?",
+    "expected_chunk_ids": ["a1ceb6a9-5dbd-4aeb-b313-0cef3cde614f"],
+    "source_doc": "05_avaliacao_offline.txt",
+    "notes": "Avaliação offline: rápida, reproduzível, barata"
+  },
+  {
+    "id": "gd-14",
+    "question": "O que é um golden dataset e como é construído para avaliação de RAG?",
+    "expected_chunk_ids": ["38dd50e4-18bb-4f1e-835d-8c550a605730", "a89a7183-1c2f-4726-becf-c17cb4b5e8bd"],
+    "source_doc": "05_avaliacao_offline.txt",
+    "notes": "Golden dataset: pares pergunta -> chunk esperado"
+  },
+  {
+    "id": "gd-15",
+    "question": "Qual é o valor mínimo aceitável de Recall@5 para um sistema RAG corporativo funcional?",
+    "expected_chunk_ids": ["1338b8d1-a33e-4d4c-bb45-1c606fdf6a2c"],
+    "source_doc": "05_avaliacao_offline.txt",
+    "notes": "Recall@5 > 0.75 mínimo aceitável"
+  },
+  {
+    "id": "gd-16",
+    "question": "O que é MRR (Mean Reciprocal Rank) e em que difere do Recall@K?",
+    "expected_chunk_ids": ["770463f7-6c06-49e9-8645-410df93c9b3e"],
+    "source_doc": "05_avaliacao_offline.txt",
+    "notes": "MRR sensível à posição do primeiro acerto"
+  },
+  {
+    "id": "gd-17",
+    "question": "O que é reranking e por que é feito depois do retrieval inicial e não junto?",
+    "expected_chunk_ids": ["fdeba6be-5953-4286-a942-a4e670f57601"],
+    "source_doc": "06_reranking.html",
+    "notes": "Reranking com cross-encoder após retrieval com bi-encoder"
+  },
+  {
+    "id": "gd-18",
+    "question": "Qual a diferença entre bi-encoder e cross-encoder no pipeline de retrieval?",
+    "expected_chunk_ids": ["2c2cb401-0dee-44c6-bac5-232310d13ff9", "17e0b92d-9bd3-4499-944f-09e65738512b"],
+    "source_doc": "06_reranking.html",
+    "notes": "Bi-encoder separado vs cross-encoder conjunto"
+  },
+  {
+    "id": "gd-19",
+    "question": "Qual é a solução padrão que combina bi-encoder e cross-encoder no pipeline RAG?",
+    "expected_chunk_ids": ["1bc33e89-d47c-4c18-b73d-f1df0417772e"],
+    "source_doc": "06_reranking.html",
+    "notes": "Top-100 bi-encoder, depois top-5 cross-encoder"
+  },
+  {
+    "id": "gd-20",
+    "question": "Quando o reranker pode piorar os resultados de retrieval?",
+    "expected_chunk_ids": ["fd4a9e9d-7604-4b20-9bf0-53a4e41167ab"],
+    "source_doc": "06_reranking.html",
+    "notes": "Reranker falha se chunk correto não está no top-100"
+  },
+  {
+    "id": "gd-21",
+    "question": "Por que o controle de acesso (ACL) deve ser aplicado antes e não depois do ranking?",
+    "expected_chunk_ids": ["4f991f4d-35f8-4417-a036-1c1d2454d2b4", "70c7fdf8-a37d-4820-b493-3a074637f2ac"],
+    "source_doc": "07_acl_tenancy.html",
+    "notes": "Pre-filter evita vazamento de existência do documento"
+  },
+  {
+    "id": "gd-22",
+    "question": "O que é tenant_id e como ele é usado no controle de acesso multi-tenant?",
+    "expected_chunk_ids": ["97b20996-4b8f-449f-889d-9e306ab7ff4e", "690390d4-bddd-4b3a-878f-2c037266d72b"],
+    "source_doc": "07_acl_tenancy.html",
+    "notes": "tenant_id como filtro obrigatório antes do ranking"
+  },
+  {
+    "id": "gd-23",
+    "question": "Qual é o critério de teste de segurança para garantir que ACL está funcionando?",
+    "expected_chunk_ids": ["de24122b-9492-4140-85af-ce450f3c9fdb"],
+    "source_doc": "07_acl_tenancy.html",
+    "notes": "Chunk de tenant A deve ser invisível para tenant B"
+  },
+  {
+    "id": "gd-24",
+    "question": "Quais métricas de latência devem ser monitoradas por estágio em um pipeline RAG?",
+    "expected_chunk_ids": ["65cc7dfd-5008-46f6-a9dd-94cf0780ad48", "55f36362-5100-46cd-a0b7-a06bd26f0182"],
+    "source_doc": "08_observabilidade.txt",
+    "notes": "Latência por estágio: parsing, chunking, embedding, retrieval..."
+  },
+  {
+    "id": "gd-25",
+    "question": "Qual é o formato recomendado para logs de observabilidade em sistemas RAG?",
+    "expected_chunk_ids": ["bb76071b-724b-480b-ac41-4fcf964fc923", "346b83f5-03f9-488c-9072-52d9af03dd71"],
+    "source_doc": "08_observabilidade.txt",
+    "notes": "JSON estruturado com timestamp, stage, latency_ms, cost_usd"
+  },
+  {
+    "id": "gd-26",
+    "question": "Qual é o valor de threshold usado para decidir entre fast path e full path?",
+    "expected_chunk_ids": ["c555cd6f-954f-4327-94f5-8bbaddcc7ad9"],
+    "source_doc": "09_fast_full_path_routing.pdf",
+    "notes": "Passo 10 (PDF): threshold = 0.6"
+  },
+  {
+    "id": "gd-27",
+    "question": "O que o fast path usa e o que o full path adiciona sobre ele?",
+    "expected_chunk_ids": ["d7837389-1ff9-455e-a308-d4a955884105", "987c87cf-0ba1-4941-9171-46edc23d90d6"],
+    "source_doc": "09_fast_full_path_routing.pdf",
+    "notes": "Passo 10 (PDF): fast path = dense+BM25+RRF; full path adiciona reranker"
+  },
+  {
+    "id": "gd-28",
+    "question": "Qual algoritmo de hash é usado para detectar se um documento mudou antes de reindexar?",
+    "expected_chunk_ids": ["27f3432a-5262-4f79-9680-245152ec997b", "d2062d51-ff1a-4c47-96a6-0a329d8bd6db"],
+    "source_doc": "10_reindexacao_incremental.pdf",
+    "notes": "Passo 10 (PDF): content_hash via SHA-256"
+  },
+  {
+    "id": "gd-29",
+    "question": "O que é invalidado no grafo de dependências quando um documento muda?",
+    "expected_chunk_ids": ["d2062d51-ff1a-4c47-96a6-0a329d8bd6db", "b3251916-b49e-43aa-9909-edad54c808b8"],
+    "source_doc": "10_reindexacao_incremental.pdf",
+    "notes": "Passo 10 (PDF): document_id -> chunk_ids -> embedding_ids"
+  },
+  {
+    "id": "gd-30",
+    "question": "O que é HyDE e o que ele gera antes de buscar?",
+    "expected_chunk_ids": ["9fe345a8-3738-440d-9f3c-7aafe363c00e"],
+    "source_doc": "11_query_decomposition_hyde.docx",
+    "notes": "Passo 10 (DOCX): HyDE gera resposta hipotética e busca pelo embedding dela"
+  },
+  {
+    "id": "gd-31",
+    "question": "Qual a diferença entre o que Query Decomposition e HyDE resolvem?",
+    "expected_chunk_ids": ["94452d72-3eb5-4af8-aa11-3ba2cc701de2", "afd6ced5-7ed8-41d0-8ea2-eb2da4a0eb55"],
+    "source_doc": "11_query_decomposition_hyde.docx",
+    "notes": "Passo 10 (DOCX): Decomposition ataca perguntas compostas; HyDE ataca queries curtas/ambíguas"
+  },
+  {
+    "id": "gd-32",
+    "question": "Na migração de modelo de embedding, o que é feito antes de apagar o modelo antigo?",
+    "expected_chunk_ids": ["208df5e5-67c7-4a7a-9417-61188e8cedc5"],
+    "source_doc": "12_migracao_embedding.docx",
+    "notes": "Passo 10 (DOCX): collection antiga mantida por um período para rollback"
+  },
+  {
+    "id": "gd-33",
+    "question": "Por que a migração de embedding cria uma segunda collection no Qdrant em vez de substituir a existente?",
+    "expected_chunk_ids": ["52f799aa-74f2-49c2-b357-97953e13138b", "f02fd7cc-0735-4a20-a4d3-59bdb9dc8589"],
+    "source_doc": "12_migracao_embedding.docx",
+    "notes": "Passo 10 (DOCX): dual-write, avaliação lado a lado antes do cutover"
+  },
+  {
+    "id": "gd-34",
+    "question": "Qual estratégia de retrieval tem o maior MRR e qual é seu valor segundo a tabela de performance?",
+    "expected_chunk_ids": ["bc0a8922-0c70-4e88-b92e-641a1afd6c71"],
+    "source_doc": "13_tabelas_financeiras.pdf",
+    "notes": "Passo 15 (tabela): full path + reranker tem MRR 0.8182 — requer leitura estruturada da tabela 1"
+  },
+  {
+    "id": "gd-35",
+    "question": "Qual é a latência em milissegundos do retrieval híbrido RRF sem reranker segundo a tabela de metricas?",
+    "expected_chunk_ids": ["bc0a8922-0c70-4e88-b92e-641a1afd6c71"],
+    "source_doc": "13_tabelas_financeiras.pdf",
+    "notes": "Passo 15 (tabela): 540ms — coluna Latencia da tabela 1 de performance"
+  },
+  {
+    "id": "gd-36",
+    "question": "Qual modelo de embedding tem o menor numero de parametros e qual e sua dimensao segundo o comparativo?",
+    "expected_chunk_ids": ["89bc18e7-70fa-4b1d-a73c-0ca9f366636e"],
+    "source_doc": "13_tabelas_financeiras.pdf",
+    "notes": "Passo 15 (tabela): all-MiniLM-L6-v2 tem 22M parametros e dimensao 384"
+  },
+  {
+    "id": "gd-37",
+    "question": "Qual modelo de embedding da OpenAI tem Recall@5 de 0.9697 e qual seu custo por 1M tokens?",
+    "expected_chunk_ids": ["89bc18e7-70fa-4b1d-a73c-0ca9f366636e"],
+    "source_doc": "13_tabelas_financeiras.pdf",
+    "notes": "Passo 15 (tabela): text-embedding-3-large, $0.130 por 1M tokens"
+  },
+  {
+    "id": "gd-38",
+    "question": "Em qual passo o Recall@5 teve o maior ganho percentual e qual foi o delta segundo a tabela de evolucao?",
+    "expected_chunk_ids": ["dec0c23c-1d21-4305-9efe-46b09e87e973"],
+    "source_doc": "13_tabelas_financeiras.pdf",
+    "notes": "Passo 15 (tabela): Passo 9 (Reranker), delta +0.03 — requer leitura estruturada da tabela 3"
+  }
+]

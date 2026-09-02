@@ -1,0 +1,47 @@
+[Recall@5] recall=0.9697 mrr=0.7864 n=33 mode=hybrid ms/q=1561
+[Recall@5] recall=0.9394 mrr=0.7500 n=33 mode=hybrid ms/q=1200
+[Recall@5] recall=0.9600 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.8000 mrr=0.6500 n=33 mode=hybrid ms/q=1500
+⚠️  ALERTA: Recall@5 caiu 0.170 (de 0.9697 para 0.8000) — threshold=0.05. Verificar pipeline.
+[Recall@5] recall=0.9600 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+{"ts": "2026-09-01T21:10:08Z", "query_hash": "7f05555d", "path": "unknown", "stages": {}, "total_ms": 0, "tokens": {"input": 0, "output": 0, "total": 0}, "cost_usd": 0.0, "recall_at_5_latest": null}
+hash=7f05555d path=unknown total=0ms cost=$0.00000 []
+[Recall@5] recall=0.9697 mrr=0.7864 n=33 mode=hybrid ms/q=1331
+{"ts": "2026-09-01T21:14:22Z", "query_hash": "61b99a97", "path": "unknown", "stages": {"retrieval.embedding": 21769.6, "retrieval.dense": 26.9, "retrieval.bm25": 4.9, "retrieval.fusion": 0.1}, "total_ms": 21801.5, "tokens": {"input": 0, "output": 0, "total": 0}, "cost_usd": 0.0, "recall_at_5_latest": null}
+hash=61b99a97 path=unknown total=21802ms cost=$0.00000 [retrieval.embedding=21770ms | retrieval.dense=27ms | retrieval.bm25=5ms | retrieval.fusion=0ms]
+[Recall@5] recall=0.9697 mrr=0.7864 n=33 mode=hybrid ms/q=1561
+[Recall@5] recall=0.9394 mrr=0.7500 n=33 mode=hybrid ms/q=1200
+[Recall@5] recall=0.9600 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.8000 mrr=0.6500 n=33 mode=hybrid ms/q=1500
+⚠️  ALERTA: Recall@5 caiu 0.170 (de 0.9697 para 0.8000) — threshold=0.05. Verificar pipeline.
+[Recall@5] recall=0.9600 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+{"ts": "2026-09-01T21:16:07Z", "query_hash": "7f05555d", "path": "unknown", "stages": {}, "total_ms": 0, "tokens": {"input": 0, "output": 0, "total": 0}, "cost_usd": 0.0, "recall_at_5_latest": null}
+hash=7f05555d path=unknown total=0ms cost=$0.00000 []
+[Recall@5] recall=0.8421 mrr=0.6829 n=38 mode=hybrid ms/q=1636
+⚠️  ALERTA: Recall@5 caiu 0.128 (de 0.9697 para 0.8421) — threshold=0.05. Verificar pipeline.
+[Recall@5] recall=0.9474 mrr=0.7882 n=38 mode=hybrid ms/q=1310
+[Recall@5] recall=0.9474 mrr=0.7882 n=38 mode=hybrid ms/q=809

@@ -1,0 +1,22 @@
+# Passo 0 — infraestrutura
+python-dotenv>=1.0.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+qdrant-client>=1.11.0
+psycopg2-binary>=2.9.0
+minio>=7.2.0
+
+# Passo 2 — parsers HTML
+beautifulsoup4>=4.12.0
+
+# Passo 4 — embedding local BGE-M3 + Passo 9 — reranker BGE local
+# (primeira execução baixa BAAI/bge-m3 ~2GB e BAAI/bge-reranker-v2-m3 ~1GB do HuggingFace)
+FlagEmbedding>=1.2.10
+torch>=2.0.0
+# transformers>=5 removeu tokenizer.prepare_for_model, usado pelo reranker do
+# FlagEmbedding 1.4.0 (AttributeError ao chamar rerank()). Fixar em 4.x.
+transformers<5,>=4.44
+
+# Passo 10 — parsers reais PDF/DOCX
+pymupdf>=1.24.0
+python-docx>=1.1.0

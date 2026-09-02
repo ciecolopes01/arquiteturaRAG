@@ -1,0 +1,4 @@
+{"ts": "2026-09-01T21:11:17Z", "recall_at_5": 0.9697, "mrr": 0.7864, "n_questions": 33, "mode": "hybrid", "ms_per_query": 1331.2}
+{"ts": "2026-09-02T01:35:23Z", "recall_at_5": 0.8421, "mrr": 0.6829, "n_questions": 38, "mode": "hybrid", "ms_per_query": 1635.5}
+{"ts": "2026-09-02T01:38:27Z", "recall_at_5": 0.9474, "mrr": 0.7882, "n_questions": 38, "mode": "hybrid", "ms_per_query": 1310.3}
+{"ts": "2026-09-02T02:46:49Z", "recall_at_5": 0.9474, "mrr": 0.7882, "n_questions": 38, "mode": "hybrid", "ms_per_query": 808.8}
