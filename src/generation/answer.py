@@ -62,16 +62,18 @@ from src.retrieval.hybrid import HybridResult, hybrid_search
 
 DEFAULT_MODEL  = "claude-3-5-haiku-20241022"   # rápido e barato para V1
 FALLBACK_MODEL = "claude-3-5-sonnet-20241022"  # mais capaz se necessário
-MAX_CONTEXT_CHUNKS = 5   # top-K passados ao LLM após retrieval (e reranker futuramente)
+MAX_CONTEXT_CHUNKS = 5   # top-K passados ao LLM após retrieval
+MAX_OUTPUT_TOKENS  = 400 # teto reduzido para economia de tokens de saída e menor latência
 
 SYSTEM_PROMPT = """Você é um assistente especialista em recuperação de informação e sistemas RAG.
-Responda de forma clara, objetiva e em português, baseando-se APENAS no contexto fornecido.
+Responda de forma estritamente concisa, direta e em português (pt-BR), baseando-se APENAS no contexto fornecido.
 
 Regras:
-1. Cite a fonte usando [Fonte N] logo após a informação que veio dela.
-2. Se a resposta não estiver no contexto, diga explicitamente: "Não encontrei essa informação nos documentos fornecidos."
-3. Não invente informações além do que está no contexto.
-4. Se houver informações contraditórias entre fontes, mencione a contradição."""
+1. Seja objetivo: responda em no máximo 2 a 4 frases assertivas. Evite preâmbulos ("Com base no contexto..."), saudações ou conclusões prolixas.
+2. Cite a fonte usando [Fonte N] imediatamente após cada informação retirada dela.
+3. Se a resposta não estiver no contexto, diga explicitamente: "Não encontrei essa informação nos documentos fornecidos."
+4. Não invente informações além do que está no contexto.
+5. Se houver informações contraditórias entre fontes, mencione a contradição de forma direta."""
 
 
 # ---------------------------------------------------------------------------
@@ -114,22 +116,68 @@ class AnswerResult:
 
 
 # ---------------------------------------------------------------------------
-# Montagem do contexto
+# Montagem e expansão do contexto (Context Engine — Passos 8 e 17)
 # ---------------------------------------------------------------------------
+
+def expand_parent_context(chunks: List[HybridResult]) -> List[HybridResult]:
+    """
+    Expande chunks filhos para seus respectivos chunks pais com deduplicação — Passo 17.
+
+    Lógica:
+    - Se múltiplos chunks filhos no top-K pertencem ao mesmo chunk pai (mesmo `parent_chunk_id`),
+      eles são condensados em uma única entrada do pai, evitando duplicações no contexto do LLM.
+    - O texto enviado ao LLM passa a ser `parent_content` (contexto rico e amplo de ~1200 tokens).
+    - Se o chunk não possui `parent_chunk_id` ou `parent_content` (ex: chunks do baseline recursive
+      ou tabelas sem hierarquia), mantém o chunk original.
+    """
+    expanded: List[HybridResult] = []
+    seen_parents: set = set()
+
+    for chunk in chunks:
+        p_id = chunk.parent_chunk_id
+        p_content = chunk.parent_content
+
+        if p_id and p_content:
+            if p_id in seen_parents:
+                continue
+            seen_parents.add(p_id)
+            expanded.append(
+                HybridResult(
+                    chunk_id=p_id,
+                    content=p_content,
+                    rrf_score=chunk.rrf_score,
+                    source_uri=chunk.source_uri,
+                    document_title=chunk.document_title,
+                    section_title=chunk.section_title,
+                    dense_rank=chunk.dense_rank,
+                    bm25_rank=chunk.bm25_rank,
+                    dense_score=chunk.dense_score,
+                    bm25_score=chunk.bm25_score,
+                    parent_chunk_id=p_id,
+                    parent_content=p_content,
+                )
+            )
+        else:
+            expanded.append(chunk)
+
+    return expanded
+
 
 def _build_context_block(chunks: List[HybridResult]) -> str:
     """
     Monta o bloco de contexto com os chunks numerados.
 
     Formato:
-        [Fonte 1] Seção: <título> | Documento: <uri>
+        [Fonte 1 (Contexto Expandido)] Seção: <título> | Documento: <uri>
         <content>
 
         [Fonte 2] ...
     """
     parts = []
     for i, chunk in enumerate(chunks, 1):
-        header_parts = [f"[Fonte {i}]"]
+        is_parent = bool(chunk.parent_chunk_id and chunk.parent_content)
+        type_tag = " (Contexto Expandido)" if is_parent else ""
+        header_parts = [f"[Fonte {i}{type_tag}]"]
         if chunk.section_title:
             header_parts.append(f"Seção: {chunk.section_title}")
         if chunk.document_title:
@@ -186,6 +234,7 @@ def _call_claude(
     chunks: List[HybridResult],
     model: str,
     stream: bool,
+    max_tokens: int = MAX_OUTPUT_TOKENS,
 ) -> AnswerResult:
     """Chama a API da Anthropic e retorna o AnswerResult."""
     try:
@@ -208,7 +257,7 @@ def _call_claude(
         usage = {"input_tokens": 0, "output_tokens": 0}
         with client.messages.stream(
             model=model,
-            max_tokens=1024,
+            max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": human_prompt}],
         ) as stream_ctx:
@@ -223,7 +272,7 @@ def _call_claude(
     else:
         response = client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": human_prompt}],
         )
@@ -266,6 +315,8 @@ def answer(
     stream: bool = False,
     dense_candidates: int = 20,
     bm25_candidates: int = 20,
+    expand_parents: bool = True,
+    max_output_tokens: int = MAX_OUTPUT_TOKENS,
 ) -> AnswerResult:
     """
     Responde uma query fazendo retrieval híbrido e geração com Claude.
@@ -275,13 +326,15 @@ def answer(
     (logs/pipeline.jsonl) com latência por estágio e custo estimado.
 
     Parâmetros:
-    - query            : pergunta do usuário.
-    - top_k            : número de chunks passados ao LLM (contexto).
-    - tenant_id        : filtro de tenant/ACL — repassado ao retrieval.
-    - model            : modelo Claude a usar.
-    - stream           : True habilita streaming (imprime tokens conforme chegam).
-    - dense_candidates : candidatos do canal dense antes do RRF.
-    - bm25_candidates  : candidatos do canal BM25 antes do RRF.
+    - query             : pergunta do usuário.
+    - top_k             : número de chunks passados ao LLM (contexto).
+    - tenant_id         : filtro de tenant/ACL — repassado ao retrieval.
+    - model             : modelo Claude a usar.
+    - stream            : True habilita streaming (imprime tokens conforme chegam).
+    - dense_candidates  : candidatos do canal dense antes do RRF.
+    - bm25_candidates   : candidatos do canal BM25 antes do RRF.
+    - expand_parents    : True expande chunks filhos para o chunk pai correspondente (Passo 17).
+    - max_output_tokens : teto máximo de tokens de saída para o LLM.
 
     Retorna AnswerResult com resposta, chunks, tokens e latência.
     """
@@ -304,6 +357,8 @@ def answer(
             stream=stream,
             dense_candidates=dense_candidates,
             bm25_candidates=bm25_candidates,
+            expand_parents=expand_parents,
+            max_output_tokens=max_output_tokens,
         )
     finally:
         if _auto_trace_ctx is not None:
@@ -320,6 +375,8 @@ def _answer_impl(
     stream: bool = False,
     dense_candidates: int = 20,
     bm25_candidates: int = 20,
+    expand_parents: bool = True,
+    max_output_tokens: int = MAX_OUTPUT_TOKENS,
 ) -> AnswerResult:
     # --- 1. Retrieval híbrido ---
     t_retrieval = time.time()
@@ -341,6 +398,13 @@ def _answer_impl(
             latency_ms=retrieval_ms,
         )
 
+    # --- 1.5 Context Engine: Expansão de chunks filhos para pais e deduplicação (Passo 17) ---
+    if expand_parents and chunks:
+        before_count = len(chunks)
+        chunks = expand_parent_context(chunks)
+        if any(c.parent_chunk_id for c in chunks):
+            print(f"[answer] Context Engine: {before_count} chunks expandidos/deduplicados para {len(chunks)} contextos pais")
+
     # --- 2. Geração ---
     if not settings.anthropic_api_key:
         print("[answer] ANTHROPIC_API_KEY não configurada — modo simulado")
@@ -348,7 +412,9 @@ def _answer_impl(
         result.latency_ms = retrieval_ms
         return result
 
-    result = _call_claude(query, chunks, model=model, stream=stream)
+    result = _call_claude(
+        query, chunks, model=model, stream=stream, max_tokens=max_output_tokens
+    )
     print(
         f"[answer] Geração: {result.latency_ms:.0f}ms | "
         f"{result.input_tokens}→{result.output_tokens} tokens"

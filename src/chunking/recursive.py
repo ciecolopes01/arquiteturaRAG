@@ -48,6 +48,9 @@ class Chunk(BaseModel):
     tenant_id: Optional[str] = None
     acl: list = Field(default_factory=list)
 
+    # Hierarquia Parent/Child (Passo 17)
+    parent_chunk_id: Optional[str] = None
+
     model_config = {"frozen": False}
 
     @property

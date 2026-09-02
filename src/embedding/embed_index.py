@@ -155,6 +155,8 @@ def embed_and_index(
                 "section_title": chunk.metadata.get("section_title", ""),
                 "chunk_index": chunk.metadata.get("chunk_index", i),
                 "content": chunk.content,          # guardamos o texto para inspeção
+                "parent_chunk_id": chunk.parent_chunk_id or chunk.metadata.get("parent_chunk_id"),
+                "parent_content": chunk.metadata.get("parent_content", ""),
                 "embedding_model_version": model_version,
             }
             points.append(
@@ -258,6 +260,8 @@ def search_dense(
             "source_uri": r.payload.get("source_uri", ""),
             "section_title": r.payload.get("section_title", ""),
             "document_title": r.payload.get("document_title", ""),
+            "parent_chunk_id": r.payload.get("parent_chunk_id"),
+            "parent_content": r.payload.get("parent_content"),
         }
         for r in points
     ]

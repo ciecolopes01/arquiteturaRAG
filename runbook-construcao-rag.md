@@ -33,7 +33,7 @@ Marque o status de cada passo conforme avança:
 | 14 | Observabilidade | [x] |
 | 15 | Tabelas estruturadas | [x] |
 | 16 | Parsing de XLSX | [x] |
-| 17 | Chunking: Parent/Child | [ ] |
+| 17 | Chunking: Parent/Child | [x] |
 | 18 | Chunking: Semantic | [ ] |
 | 19 | Parsing de imagens (OCR + visão) | [ ] |
 | 20 | Multi-vector / representações múltiplas | [ ] |
@@ -517,6 +517,22 @@ Marque o status de cada passo conforme avança:
 **Entregável:** Módulo `src/chunking/parent_child.py` + ajuste no Context Engine para expansão.
 
 **Critério de "pronto":** Qualidade da resposta gerada (inspeção manual em 10 perguntas) melhora perceptivelmente em perguntas que precisam de mais contexto ao redor do trecho encontrado.
+
+**Status atual (2026-09-02):** [x] Concluído.
+- Módulo `src/chunking/parent_child.py` implementado:
+  - `chunk_parent_child(doc, parent_max_tokens=1200, child_max_tokens=300, child_overlap=40)`.
+  - Agrupamento de seções e parágrafos em chunks pais amplos (~1200 tokens) e subdivisão em chunks filhos focados (~300 tokens com overlap de 40 tokens).
+  - Vinculação estrita de `parent_chunk_id` e metadados `parent_content` em todos os chunks filhos.
+- Schema e infraestrutura atualizados:
+  - `Chunk.parent_chunk_id` de primeira classe em `src/chunking/recursive.py`.
+  - Propagação de `parent_chunk_id` e `parent_content` no payload Qdrant (`src/embedding/embed_index.py`), schema Postgres BM25 (`src/retrieval/bm25_index.py`) e `HybridResult` (`src/retrieval/hybrid.py`).
+- **Context Engine com Parent Expansion & Deduplicação** (`src/generation/answer.py`):
+  - Função `expand_parent_context`: substitui os chunks filhos recuperados pelo conteúdo do pai correspondente e condensa múltiplos filhos pertencentes ao mesmo pai em um único bloco de contexto, eliminando duplicações e economizando tokens de janela.
+  - Suporte via parâmetro `expand_parents=True` em `answer()`.
+- Testes unitários completos em `tests/test_parent_child.py` (6/6 testes passando: hierarquia, integridade referencial de pais/filhos, tabelas estruturadas, deduplicação no context engine, fallback de chunks legados).
+- Avaliação comparativa em 10 perguntas do seed corpus (`scripts/evaluate_parent_child.py`):
+  - Deduplicação ativa comprovada: perguntas tabulares e multisseção (`gd-39`, `gd-43`) condensam múltiplos filhos no mesmo pai.
+  - Ganho de contexto relevante: até 2.49x mais completude contextual em tabelas e seções técnicas (`gd-36`), entregando a visão integral da seção ao LLM sem cortes arbitrários.
 
 **Como retomar:** Cole esta seção com a comparação Recall@5 / qualidade de resposta entre recursive e parent/child.
 

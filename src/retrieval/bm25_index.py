@@ -97,24 +97,33 @@ ALTER TABLE bm25_chunks
 
 CREATE INDEX IF NOT EXISTS bm25_chunks_acl_idx
     ON bm25_chunks USING GIN (acl_principals);
+
+-- Passo 17: Parent/Child — suporte a chunk pai e conteúdo expandido
+ALTER TABLE bm25_chunks
+    ADD COLUMN IF NOT EXISTS parent_chunk_id TEXT;
+ALTER TABLE bm25_chunks
+    ADD COLUMN IF NOT EXISTS parent_content TEXT;
 """
 
 UPSERT_SQL = """
 INSERT INTO bm25_chunks
     (chunk_id, document_id, tenant_id, content, content_tsv,
-     source_uri, document_title, section_title, chunk_index, acl_principals)
+     source_uri, document_title, section_title, chunk_index, acl_principals,
+     parent_chunk_id, parent_content)
 VALUES
     (%(chunk_id)s, %(document_id)s, %(tenant_id)s, %(content)s,
      to_tsvector('portuguese', %(content)s),
      %(source_uri)s, %(document_title)s, %(section_title)s, %(chunk_index)s,
-     %(acl_principals)s)
+     %(acl_principals)s, %(parent_chunk_id)s, %(parent_content)s)
 ON CONFLICT (chunk_id) DO UPDATE SET
     content         = EXCLUDED.content,
     content_tsv     = EXCLUDED.content_tsv,
     document_title  = EXCLUDED.document_title,
     section_title   = EXCLUDED.section_title,
     chunk_index     = EXCLUDED.chunk_index,
-    acl_principals  = EXCLUDED.acl_principals;
+    acl_principals  = EXCLUDED.acl_principals,
+    parent_chunk_id = EXCLUDED.parent_chunk_id,
+    parent_content  = EXCLUDED.parent_content;
 """
 
 # Filtro de ACL (Passo 11): "principals = '{}'" (nenhum principal informado)
@@ -131,6 +140,8 @@ SELECT
     document_title,
     section_title,
     chunk_index,
+    parent_chunk_id,
+    parent_content,
     ts_rank_cd(content_tsv, query) AS score
 FROM bm25_chunks,
      plainto_tsquery('portuguese', %(query_text)s) AS query
@@ -151,6 +162,8 @@ SELECT
     document_title,
     section_title,
     chunk_index,
+    parent_chunk_id,
+    parent_content,
     ts_rank_cd(content_tsv, query) AS score
 FROM bm25_chunks,
      to_tsquery('portuguese', %(query_text)s) AS query
@@ -211,6 +224,8 @@ def index_bm25(chunks: List[Chunk], clear_first: bool = False) -> int:
             "section_title": c.metadata.get("section_title") or "",
             "chunk_index":   c.metadata.get("chunk_index", 0),
             "acl_principals": [e.get("principal") for e in c.acl if e.get("principal")],
+            "parent_chunk_id": c.parent_chunk_id or c.metadata.get("parent_chunk_id"),
+            "parent_content": c.metadata.get("parent_content"),
         }
         for c in chunks
     ]

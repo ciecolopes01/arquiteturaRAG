@@ -66,6 +66,8 @@ class HybridResult:
     bm25_rank: Optional[int] = None     # posição no ranking BM25 (1-indexed)
     dense_score: Optional[float] = None
     bm25_score: Optional[float] = None
+    parent_chunk_id: Optional[str] = None
+    parent_content: Optional[str] = None
 
     @property
     def sources(self) -> list[str]:
@@ -153,6 +155,8 @@ def reciprocal_rank_fusion(
                 bm25_rank=r.get("bm25"),
                 dense_score=rs.get("dense"),
                 bm25_score=rs.get("bm25"),
+                parent_chunk_id=m.get("parent_chunk_id"),
+                parent_content=m.get("parent_content"),
             )
         )
 
