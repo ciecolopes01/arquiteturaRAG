@@ -45,3 +45,9 @@ hash=7f05555d path=unknown total=0ms cost=$0.00000 []
 ⚠️  ALERTA: Recall@5 caiu 0.128 (de 0.9697 para 0.8421) — threshold=0.05. Verificar pipeline.
 [Recall@5] recall=0.9474 mrr=0.7882 n=38 mode=hybrid ms/q=1310
 [Recall@5] recall=0.9474 mrr=0.7882 n=38 mode=hybrid ms/q=809
+[Recall@5] recall=0.1163 mrr=0.1047 n=43 mode=dense ms/q=1020
+[ALERTA] Recall@5 caiu 0.853 (de 0.9697 para 0.1163) -- threshold=0.05. Verificar pipeline.
+[Recall@5] recall=0.0000 mrr=0.0000 n=43 mode=bm25 ms/q=2
+[ALERTA] Recall@5 caiu 0.970 (de 0.9697 para 0.0000) -- threshold=0.05. Verificar pipeline.
+[Recall@5] recall=0.1163 mrr=0.1047 n=43 mode=hybrid ms/q=526
+[ALERTA] Recall@5 caiu 0.853 (de 0.9697 para 0.1163) -- threshold=0.05. Verificar pipeline.

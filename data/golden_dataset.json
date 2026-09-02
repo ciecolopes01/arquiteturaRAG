@@ -264,5 +264,40 @@
     "expected_chunk_ids": ["dec0c23c-1d21-4305-9efe-46b09e87e973"],
     "source_doc": "13_tabelas_financeiras.pdf",
     "notes": "Passo 15 (tabela): Passo 9 (Reranker), delta +0.03 — requer leitura estruturada da tabela 3"
+  },
+  {
+    "id": "gd-39",
+    "question": "Qual o orçamento e o valor gasto no projeto DataLake Migration segundo a planilha de budget de projetos?",
+    "expected_chunk_ids": ["d82d6300-505f-5e77-ab8f-53ee83fc8f9a"],
+    "source_doc": "14_budget_projetos.xlsx",
+    "notes": "Passo 16 (XLSX): DataLake Migration tem orçamento R$ 1.200.000 e gasto R$ 1.200.000"
+  },
+  {
+    "id": "gd-40",
+    "question": "Quem é o responsável pelo projeto Mobile App Redesign e qual seu status na planilha de projetos?",
+    "expected_chunk_ids": ["d82d6300-505f-5e77-ab8f-53ee83fc8f9a"],
+    "source_doc": "14_budget_projetos.xlsx",
+    "notes": "Passo 16 (XLSX): Responsável Beatriz Lima, Status Em andamento"
+  },
+  {
+    "id": "gd-41",
+    "question": "Qual foi a eficiência percentual e o saldo em reais no trimestre Q2_2026 segundo o resumo trimestral?",
+    "expected_chunk_ids": ["e441a807-1d4a-5679-b72e-e328a16eb6a0"],
+    "source_doc": "14_budget_projetos.xlsx",
+    "notes": "Passo 16 (XLSX): Eficiência 73.8% e Saldo R$ 550.000 no Q2_2026"
+  },
+  {
+    "id": "gd-42",
+    "question": "Qual foi a taxa de DAU sobre MAU e a duração média em minutos em Jan_2026 segundo a planilha de engajamento?",
+    "expected_chunk_ids": ["a88229dc-5420-51be-b393-78450f8b4302"],
+    "source_doc": "15_kpis_produto.xlsx",
+    "notes": "Passo 16 (XLSX): DAU/MAU 18.4% e duração média 4.2 min em Jan_2026"
+  },
+  {
+    "id": "gd-43",
+    "question": "Qual foi o MRR e o ARR em reais registrado no mês de Jan_2026 na planilha de KPIs de receita?",
+    "expected_chunk_ids": ["01790cf6-eb60-5559-b3ba-e3d1cc68a323"],
+    "source_doc": "15_kpis_produto.xlsx",
+    "notes": "Passo 16 (XLSX): MRR R$ 420.000 e ARR R$ 5.040.000 em Jan_2026"
   }
 ]

@@ -80,7 +80,7 @@ class Table(BaseModel):
 
     id: str = Field(default_factory=_new_id)
     element_type: ElementType = ElementType.TABLE
-    content: str                          # representação texto/markdown da tabela
+    content: str = ""                     # representação texto/markdown da tabela
     headers: List[str] = Field(default_factory=list)
     rows: List[List[str]] = Field(default_factory=list)
     caption: Optional[str] = None

@@ -112,7 +112,7 @@ def parse_pdf(
                 pass
 
         # Extrai linhas de texto (excluindo bboxes de tabela)
-        page_dict = page.get_text("rawdict")
+        page_dict = page.get_text("dict")
         lines_out: List[dict] = []
         for block in page_dict.get("blocks", []):
             for line in block.get("lines", []):

@@ -307,7 +307,10 @@ def parse_file(
     elif ext == ".docx":
         from src.parsing.docx_parser import parse_docx
         return parse_docx(path, tenant_id=tenant_id, source_uri=source_uri)
+    elif ext == ".xlsx":
+        from src.parsing.xlsx_parser import parse_xlsx
+        return parse_xlsx(path, tenant_id=tenant_id, source_uri=source_uri)
     else:
         raise ValueError(
-            f"Extensão '{ext}' não suportada. Use .txt, .html, .pdf ou .docx."
+            f"Extensão '{ext}' não suportada. Use .txt, .html, .pdf, .docx ou .xlsx."
         )

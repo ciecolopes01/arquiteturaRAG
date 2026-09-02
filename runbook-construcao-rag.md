@@ -32,7 +32,7 @@ Marque o status de cada passo conforme avança:
 | 13 | Fast path / full path + routing suave | [x] |
 | 14 | Observabilidade | [x] |
 | 15 | Tabelas estruturadas | [x] |
-| 16 | Parsing de XLSX | [ ] |
+| 16 | Parsing de XLSX | [x] |
 | 17 | Chunking: Parent/Child | [ ] |
 | 18 | Chunking: Semantic | [ ] |
 | 19 | Parsing de imagens (OCR + visão) | [ ] |
@@ -487,6 +487,14 @@ Marque o status de cada passo conforme avança:
 **Entregável:** Módulo `src/parsing/xlsx_parser.py`.
 
 **Critério de "pronto":** Planilhas de teste indexadas corretamente; perguntas de golden dataset sobre elas respondidas com a estrutura da tabela, não texto solto.
+
+**Status atual (2026-09-02):** [x] Concluído.
+- Módulo `src/parsing/xlsx_parser.py` implementado com `openpyxl`: resolução de células mescladas (`merged_cells`) com propagação de valores, unificação de cabeçalhos de múltiplas linhas ("Categoria - Subcategoria"), divisão de tabelas múltiplas na mesma aba por linhas em branco, descarte automático de abas vazias ou ocultas.
+- Integração completa com o Canonical Document Model (`Table`) e com `build_table_content` de `table_extractor.py` (representação dual: Markdown estruturado + sumário determinístico em português).
+- Dispatcher `parse_file` em `src/parsing/simple_parsers.py` e reindexação incremental em `src/ingestion/incremental_reindex.py` atualizados para reconhecer e processar arquivos `.xlsx`.
+- Planilhas seed adicionadas ao corpus (`14_budget_projetos.xlsx`, `15_kpis_produto.xlsx`, além dos geradores em `scripts/create_xlsx_seed.py`).
+- Testes unitários completos em `tests/test_xlsx_parser.py` com 7/7 suítes passando (formatação, parsing básico, células mescladas/multilinhas, abas múltiplas/vazias, dispatcher, chunking e seed corpus).
+- Golden Dataset expandido com 5 novas perguntas estruturadas (`gd-39` a `gd-43`) com **Recall@5 = 1.0 (5/5 hits, 100%)** e **MRR = 0.900** no retrieval híbrido com BGE-M3.
 
 **Como retomar:** Cole esta seção e diga quantas planilhas já foram processadas e se o Recall@5 nas perguntas relacionadas está ok.
 
