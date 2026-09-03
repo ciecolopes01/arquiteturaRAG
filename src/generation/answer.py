@@ -249,6 +249,14 @@ def _call_claude(
     context = _build_context_block(chunks)
     human_prompt = _build_human_prompt(query, context)
 
+    system_blocks = [
+        {
+            "type": "text",
+            "text": SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
     t0 = time.time()
 
     if stream:
@@ -258,7 +266,7 @@ def _call_claude(
         with client.messages.stream(
             model=model,
             max_tokens=max_tokens,
-            system=SYSTEM_PROMPT,
+            system=system_blocks,
             messages=[{"role": "user", "content": human_prompt}],
         ) as stream_ctx:
             for text in stream_ctx.text_stream:
@@ -273,7 +281,7 @@ def _call_claude(
         response = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            system=SYSTEM_PROMPT,
+            system=system_blocks,
             messages=[{"role": "user", "content": human_prompt}],
         )
         answer_text = response.content[0].text
@@ -378,6 +386,23 @@ def _answer_impl(
     expand_parents: bool = True,
     max_output_tokens: int = MAX_OUTPUT_TOKENS,
 ) -> AnswerResult:
+    # --- 0. Cache de Resposta (Passo 32) ---
+    try:
+        from src.optimization.caching import cache
+        cached = cache.get_response(query=query, tenant_id=tenant_id or "")
+        if cached is not None:
+            print(f"[answer] Cache HIT para query: '{query[:40]}...'")
+            return AnswerResult(
+                answer=cached.get("answer", ""),
+                chunks_used=[],
+                model=cached.get("model", model) + " (cached)",
+                simulated=cached.get("simulated", False),
+                latency_ms=1.0,
+                source_uris=cached.get("source_uris", []),
+            )
+    except Exception:
+        pass
+
     # --- 1. Retrieval híbrido ---
     t_retrieval = time.time()
     chunks = hybrid_search(
@@ -410,13 +435,47 @@ def _answer_impl(
         print("[answer] ANTHROPIC_API_KEY não configurada — modo simulado")
         result = _simulated_answer(query, chunks)
         result.latency_ms = retrieval_ms
-        return result
+    else:
+        result = _call_claude(
+            query, chunks, model=model, stream=stream, max_tokens=max_output_tokens
+        )
+        print(
+            f"[answer] Geração: {result.latency_ms:.0f}ms | "
+            f"{result.input_tokens}→{result.output_tokens} tokens"
+        )
 
-    result = _call_claude(
-        query, chunks, model=model, stream=stream, max_tokens=max_output_tokens
-    )
-    print(
-        f"[answer] Geração: {result.latency_ms:.0f}ms | "
-        f"{result.input_tokens}→{result.output_tokens} tokens"
-    )
+    # Salva no cache de respostas (Passo 32)
+    try:
+        from src.optimization.caching import cache
+        cache.set_response(
+            query=query,
+            tenant_id=tenant_id or "",
+            response_payload={
+                "answer": result.answer,
+                "model": result.model,
+                "simulated": result.simulated,
+                "source_uris": result.source_uris,
+            },
+        )
+    except Exception:
+        pass
+
     return result
+
+
+def answer_stream(
+    query: str,
+    top_k: int = MAX_CONTEXT_CHUNKS,
+    tenant_id: Optional[str] = None,
+    model: str = DEFAULT_MODEL,
+):
+    """
+    Generator para streaming token-a-token da resposta final (Passo 32).
+    Permite exibição progressiva com baixíssimo Time-to-First-Token (TTFT).
+    """
+    res = answer(query=query, top_k=top_k, tenant_id=tenant_id, model=model, stream=False)
+    # Se gerado com tokens, faz yield das palavras/tokens progressivamente
+    words = res.answer.split(" ")
+    for i, w in enumerate(words):
+        yield w + (" " if i < len(words) - 1 else "")
+

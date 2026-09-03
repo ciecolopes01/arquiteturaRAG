@@ -53,5 +53,12 @@ class Settings(BaseSettings):
         "graph": 0.8,
     }
 
+    # Otimização de Latência e Cache (Passo 32)
+    reranker_top_k_candidates: int = 20
+    qdrant_ef_search: int = 64
+    enable_cache: bool = True
+    cache_response_ttl: int = 3600
+    cache_embedding_ttl: int = 86400
+
 
 settings = Settings()

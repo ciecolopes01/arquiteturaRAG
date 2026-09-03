@@ -216,9 +216,23 @@ def search_dense(
     client = _get_client()
     trace = get_current_trace()
 
-    # --- Embedding da query (sub-estágio instrumentado) ---
+    # --- Embedding da query (sub-estágio instrumentado com cache - Passo 32) ---
     _t_embed = time.time()
-    query_vector = embed_query(query)
+    query_vector = None
+    try:
+        from src.optimization.caching import cache
+        query_vector = cache.get_embedding(query, settings.embedding_model)
+    except Exception:
+        query_vector = None
+
+    if query_vector is None:
+        query_vector = embed_query(query)
+        try:
+            from src.optimization.caching import cache
+            cache.set_embedding(query, settings.embedding_model, query_vector)
+        except Exception:
+            pass
+
     _embed_ms = (time.time() - _t_embed) * 1000
     if trace is not None:
         trace.record_stage("retrieval.embedding", _embed_ms)
@@ -235,14 +249,18 @@ def search_dense(
         )
     search_filter = Filter(must=conditions) if conditions else None
 
-    # --- Busca vetorial Qdrant (sub-estágio instrumentado) ---
+    # --- Busca vetorial Qdrant (sub-estágio instrumentado - Passo 32 ef_search) ---
     _t_qdrant = time.time()
+    from qdrant_client.models import SearchParams
+    search_params = SearchParams(hnsw_ef=getattr(settings, "qdrant_ef_search", 64))
+
     # qdrant-client >= 1.7 usa query_points() em vez de search()
     response = client.query_points(
         collection_name=settings.qdrant_collection,
         query=query_vector,
         limit=top_k,
         query_filter=search_filter,
+        search_params=search_params,
         with_payload=True,
     )
     _qdrant_ms = (time.time() - _t_qdrant) * 1000
