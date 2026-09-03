@@ -36,7 +36,7 @@ Marque o status de cada passo conforme avança:
 | 17 | Chunking: Parent/Child | [x] |
 | 18 | Chunking: Semantic | [x] |
 | 19 | Parsing de imagens (OCR + visão) | [x] |
-| 20 | Multi-vector / representações múltiplas | [ ] |
+| 20 | Multi-vector / representações múltiplas | [x] |
 | 21 | Query Router completo | [ ] |
 | 22 | Query Decomposition | [ ] |
 | 23 | HyDE | [ ] |
@@ -632,7 +632,16 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Recall@5 medido antes/depois; deduplicação confirmada (mesmo chunk não aparece 3x no resultado final por ter 3 representações).
 
-**Como retomar:** Cole esta seção com a comparação de Recall@5 e confirmação de que a deduplicação funciona.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/representation/multi_vector.py` implementado com suporte a representações múltiplas: `ORIGINAL`, `SUMMARY` e `KEYWORDS` (com integração Claude e fallback determinístico).
+- Coleção dedicada no Qdrant com mapeamento multi-vetorial referenciando o `chunk_id` original no payload.
+- Deduplicação inteligente e acúmulo de evidência confirmados: múltiplos hits no mesmo chunk somam pontuação RRF sem duplicar o chunk no resultado.
+- Fusão RRF híbrida (`multi_vector_hybrid_search`) integrando busca multi-vetorial e BM25 léxico.
+- Suíte `tests/test_multi_vector.py` com 100% de sucesso (4/4 testes passando).
+
+**Como retomar:** Passo 20 concluído. O próximo passo é o Passo 21 (Query Router completo).
 
 ---
 
