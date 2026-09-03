@@ -45,7 +45,7 @@ Marque o status de cada passo conforme avança:
 | 26 | Parsing de vídeo | [x] |
 | 27 | Parsing de áudio | [x] |
 | 28 | Graph RAG (opcional) | [x] |
-| 29 | Adaptive Retrieval / Self-RAG | [ ] |
+| 29 | Adaptive Retrieval / Self-RAG | [x] |
 | 30 | Auto-tuning de pesos de fusão | [ ] |
 | 31 | Plataforma de benchmark comparável | [ ] |
 | 32 | Otimização de latência | [ ] |
@@ -924,7 +924,19 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Nas perguntas sem resposta no corpus, o sistema responde "não sei" ou similar, em vez de alucinar, em pelo menos a maioria dos casos testados.
 
-**Como retomar:** Cole esta seção com quantas das perguntas "sem resposta" foram corretamente identificadas como tal.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/generation/self_rag.py` implementado com arquitetura adaptativa:
+  * Avaliação de suficiência (`evaluate_context_sufficiency`) com base no score logit do reranker top-1 e probabilidade sigmoide calibrada.
+  * Três estados de decisão estritos (`SelfRAGDecision`): `SUFFICIENT` (gera resposta com citações), `RETRY_RETRIEVAL` (reescreve query e expande candidatos) e `INSUFFICIENT` (recusa explícita sem inventar).
+  * Reescrita e simplificação inteligente de consulta (`rewrite_query_for_retry`) focando nos termos-chave para o retry.
+  * Função `adaptive_answer` integrando retrieval roteado, reranker BGE-v2, observabilidade e fallback preventivo anti-alucinação.
+- Suíte de testes `tests/test_self_rag.py` executada com 100% de sucesso (4/4 testes passando):
+  * 100% (5/5) das perguntas fora do corpus foram reconhecidas e recusadas educadamente com a mensagem padrão ("Não encontrei informações suficientes nos documentos fornecidos para responder a essa pergunta.").
+  * Perguntas dentro do corpus foram respondidas com contexto válido e citações precisas.
+
+**Como retomar:** Passo 29 concluído. O próximo passo é o Passo 30 (Auto-tuning de pesos de fusão).
 
 ---
 
