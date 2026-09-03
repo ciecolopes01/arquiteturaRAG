@@ -29,7 +29,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from src.parsing.canonical_model import Document, ElementType, Image, Paragraph, Section, Table, VideoScene
+from src.parsing.canonical_model import AudioSegment, Document, ElementType, Image, Paragraph, Section, Table, VideoScene
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +307,28 @@ def chunk_recursive(
                 chunk.metadata["visual_description"] = element.visual_description
                 chunk.metadata["ocr_text"] = element.ocr_text
                 chunk.metadata["keyframe_storage_uri"] = element.keyframe_storage_uri
+                chunks.append(chunk)
+                last_chunk_text = full_content
+
+        elif etype == ElementType.AUDIO_SEGMENT:
+            assert isinstance(element, AudioSegment)
+            # Segmentos de áudio viram chunks dedicados com timestamps (Passo 27)
+            content = element.content or ""
+            if not content.strip():
+                content = f"## Trecho {element.segment_index} ({element.start_time_str} - {element.end_time_str})\n{element.transcript}"
+
+            section_ctx = f"[Áudio: {document.title or 'Áudio'}]\n" if document.title else ""
+            full_content = (section_ctx + content).strip()
+            if full_content:
+                chunk = make_chunk(full_content, [element.id])
+                chunk.metadata["element_type"] = "audio_segment"
+                chunk.metadata["segment_index"] = element.segment_index
+                chunk.metadata["start_time"] = element.start_time
+                chunk.metadata["end_time"] = element.end_time
+                chunk.metadata["start_time_str"] = element.start_time_str
+                chunk.metadata["end_time_str"] = element.end_time_str
+                chunk.metadata["transcript"] = element.transcript
+                chunk.metadata["speaker"] = element.speaker
                 chunks.append(chunk)
                 last_chunk_text = full_content
 

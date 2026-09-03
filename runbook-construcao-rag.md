@@ -43,7 +43,7 @@ Marque o status de cada passo conforme avança:
 | 24 | Migração de modelo de embedding | [x] |
 | 25 | Avaliação online + feedback loop | [x] |
 | 26 | Parsing de vídeo | [x] |
-| 27 | Parsing de áudio | [ ] |
+| 27 | Parsing de áudio | [x] |
 | 28 | Graph RAG (opcional) | [ ] |
 | 29 | Adaptive Retrieval / Self-RAG | [ ] |
 | 30 | Auto-tuning de pesos de fusão | [ ] |
@@ -854,7 +854,20 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Pergunta sobre o conteúdo de um áudio específico do corpus seed retorna o segmento certo.
 
-**Como retomar:** Cole esta seção e diga se as perguntas de teste sobre áudio estão funcionando.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Schema `AudioSegment` integrado ao Canonical Document Model (`src/parsing/canonical_model.py`) contendo metadados temporais (`start_time`, `end_time`, `start_time_str`, `end_time_str`), transcrição textual pontuada via Whisper e orador opcional.
+- Módulo `src/parsing/audio_parser.py` implementado com:
+  * Transcrição acelerada via `faster-whisper` com segmentação automática orientada a pausas naturais e pontuação de fala (`transcribe_audio_segments`).
+  * Agrupamento inteligente de microsegmentos curtos para evitar chunks fragmentados.
+  * Conversor e padronizador via `ffmpeg` (`convert_audio_to_wav`) como fallback resiliente para qualquer container de áudio.
+- Suporte a `AudioSegment` no chunker recursivo (`src/chunking/recursive.py`) gerando chunks enriquecidos com metadados temporais e contexto de documento.
+- Despacho de extensões de áudio (.mp3, .wav, .m4a, .ogg, .flac, .aac) integrado a `src/parsing/simple_parsers.py` (`parse_file`).
+- Gerador de áudio sintético `scripts/generate_seed_audio_step27.py` criando dois arquivos no seed corpus (`22_podcast_governanca_rag.mp3` e `23_reuniao_arquitetura_reranking.mp3`) com pausas naturais de fala e conteúdo técnico de governança e reranking.
+- Suíte de testes `tests/test_audio_parser.py` executada com 100% de sucesso (5/5 testes passando), validando o critério de pronto ("pergunta sobre conteúdo de áudio retorna o segmento certo com timestamp").
+
+**Como retomar:** Passo 27 concluído. O próximo passo é o Passo 28 (Graph RAG - opcional) ou Passo 29 (Adaptive Retrieval / Self-RAG).
 
 ---
 

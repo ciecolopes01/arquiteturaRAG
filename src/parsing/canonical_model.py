@@ -45,6 +45,7 @@ class ElementType(str, Enum):
     IMAGE = "image"
     PAGE = "page"
     VIDEO_SCENE = "video_scene"
+    AUDIO_SEGMENT = "audio_segment"
 
 
 # ---------------------------------------------------------------------------
@@ -137,8 +138,27 @@ class VideoScene(BaseModel):
     model_config = {"frozen": False}
 
 
+class AudioSegment(BaseModel):
+    """Segmento de áudio com transcrição e timestamps — Passo 27."""
+
+    id: str = Field(default_factory=_new_id)
+    element_type: ElementType = ElementType.AUDIO_SEGMENT
+    segment_index: int = 0
+    start_time: float = 0.0              # segundos de início
+    end_time: float = 0.0                # segundos de término
+    start_time_str: str = "00:00:00"     # timestamp formatado HH:MM:SS ou MM:SS
+    end_time_str: str = "00:00:00"       # timestamp formatado HH:MM:SS ou MM:SS
+    transcript: str = ""                 # transcrição do trecho via Whisper
+    content: str = ""                    # texto estruturado para chunking e busca
+    speaker: Optional[str] = None        # orador identificado ou None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    dependency_graph_id: Optional[str] = None
+
+    model_config = {"frozen": False}
+
+
 # Union de todos os tipos de elemento
-DocumentElement = Paragraph | Section | Table | Image | Page | VideoScene
+DocumentElement = Paragraph | Section | Table | Image | Page | VideoScene | AudioSegment
 
 
 # ---------------------------------------------------------------------------
