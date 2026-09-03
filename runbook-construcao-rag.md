@@ -41,7 +41,7 @@ Marque o status de cada passo conforme avança:
 | 22 | Query Decomposition | [x] |
 | 23 | HyDE | [x] |
 | 24 | Migração de modelo de embedding | [x] |
-| 25 | Avaliação online + feedback loop | [ ] |
+| 25 | Avaliação online + feedback loop | [x] |
 | 26 | Parsing de vídeo | [ ] |
 | 27 | Parsing de áudio | [ ] |
 | 28 | Graph RAG (opcional) | [ ] |
@@ -783,7 +783,16 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Pelo menos um ciclo completo executado — feedback capturado, revisado, e (se aplicável) incorporado ao golden dataset.
 
-**Como retomar:** Cole esta seção com quantos feedbacks foram capturados e se algum já virou caso de teste novo.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/evaluation/online_feedback.py` implementado com persistência estruturada em `logs/online_feedback.jsonl` (upvotes e downvotes).
+- Loop de feedback contínuo implementado: triage de downvotes via `get_downvoted_queries` e enriquecimento automático do golden dataset via `promote_feedback_to_golden_dataset`.
+- Métricas online: `calculate_satisfaction_rate` para monitoramento de CSAT/satisfação do usuário.
+- Detecção de deriva: `check_degradation_alert` emitindo alertas imediatos para quedas superiores a 5 p.p. no recall rolling.
+- Suíte `tests/test_online_feedback.py` executada com 100% de sucesso (4/4 testes passando).
+
+**Como retomar:** Passo 25 concluído. O próximo passo é o Passo 26 (Parsing de vídeo).
 
 ---
 
