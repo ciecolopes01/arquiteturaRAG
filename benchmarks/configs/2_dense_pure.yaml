@@ -1,0 +1,10 @@
+name: "Dense BGE-M3 Pure"
+description: "Busca vetorial por similaridade de cosseno no Qdrant sem reranker"
+chunking: "recursive"
+retrievers:
+  - "dense"
+fusion:
+  strategy: "single"
+  weights:
+    dense: 1.0
+reranker: "none"

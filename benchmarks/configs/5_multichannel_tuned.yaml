@@ -1,0 +1,16 @@
+name: "Multichannel + Tuned RRF + Reranker"
+description: "Pipeline completo: Dense + BM25 + Graph RAG, pesos auto-ajustados e Reranker"
+chunking: "recursive"
+retrievers:
+  - "dense"
+  - "bm25"
+  - "graph"
+fusion:
+  strategy: "weighted_rrf"
+  k: 60
+  weights:
+    dense: 1.2
+    bm25: 1.0
+    graph: 0.8
+reranker: "bge-reranker-v2-m3"
+rerank_candidates: 20

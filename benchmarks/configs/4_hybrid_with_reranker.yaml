@@ -1,0 +1,14 @@
+name: "Hybrid RRF + BGE Reranker"
+description: "Busca híbrida com cross-encoder BGE-Reranker-v2-m3"
+chunking: "recursive"
+retrievers:
+  - "dense"
+  - "bm25"
+fusion:
+  strategy: "rrf"
+  k: 60
+  weights:
+    dense: 1.0
+    bm25: 1.0
+reranker: "bge-reranker-v2-m3"
+rerank_candidates: 15

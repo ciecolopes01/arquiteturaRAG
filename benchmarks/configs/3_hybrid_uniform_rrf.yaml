@@ -1,0 +1,13 @@
+name: "Hybrid Uniform RRF"
+description: "Busca híbrida padrão com RRF uniforme (k=60) sem reranker"
+chunking: "recursive"
+retrievers:
+  - "dense"
+  - "bm25"
+fusion:
+  strategy: "rrf"
+  k: 60
+  weights:
+    dense: 1.0
+    bm25: 1.0
+reranker: "none"

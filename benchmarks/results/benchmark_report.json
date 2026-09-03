@@ -1,0 +1,72 @@
+[
+  {
+    "config_name": "BM25 Pure",
+    "description": "Busca puramente lexical via tsvector no Postgres sem reranker",
+    "recall_at_5": 0.0,
+    "mrr": 0.0,
+    "hits": 0,
+    "total_queries": 2,
+    "avg_latency_ms": 461.22,
+    "estimated_cost_per_1k": 0.0,
+    "best_category": "Factual / Específica",
+    "category_recalls": {
+      "Factual / Específica": 0.0
+    }
+  },
+  {
+    "config_name": "Dense BGE-M3 Pure",
+    "description": "Busca vetorial por similaridade de cosseno no Qdrant sem reranker",
+    "recall_at_5": 0.0,
+    "mrr": 0.0,
+    "hits": 0,
+    "total_queries": 2,
+    "avg_latency_ms": 16940.24,
+    "estimated_cost_per_1k": 0.0,
+    "best_category": "Factual / Específica",
+    "category_recalls": {
+      "Factual / Específica": 0.0
+    }
+  },
+  {
+    "config_name": "Hybrid Uniform RRF",
+    "description": "Busca híbrida padrão com RRF uniforme (k=60) sem reranker",
+    "recall_at_5": 0.0,
+    "mrr": 0.0,
+    "hits": 0,
+    "total_queries": 2,
+    "avg_latency_ms": 1315.34,
+    "estimated_cost_per_1k": 0.0,
+    "best_category": "Factual / Específica",
+    "category_recalls": {
+      "Factual / Específica": 0.0
+    }
+  },
+  {
+    "config_name": "Hybrid RRF + BGE Reranker",
+    "description": "Busca híbrida com cross-encoder BGE-Reranker-v2-m3",
+    "recall_at_5": 0.0,
+    "mrr": 0.0,
+    "hits": 0,
+    "total_queries": 2,
+    "avg_latency_ms": 194273.63,
+    "estimated_cost_per_1k": 0.0,
+    "best_category": "Factual / Específica",
+    "category_recalls": {
+      "Factual / Específica": 0.0
+    }
+  },
+  {
+    "config_name": "Multichannel + Tuned RRF + Reranker",
+    "description": "Pipeline completo: Dense + BM25 + Graph RAG, pesos auto-ajustados e Reranker",
+    "recall_at_5": 0.0,
+    "mrr": 0.0,
+    "hits": 0,
+    "total_queries": 2,
+    "avg_latency_ms": 253141.11,
+    "estimated_cost_per_1k": 0.0,
+    "best_category": "Factual / Específica",
+    "category_recalls": {
+      "Factual / Específica": 0.0
+    }
+  }
+]

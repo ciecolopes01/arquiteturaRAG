@@ -1,0 +1,10 @@
+name: "BM25 Pure"
+description: "Busca puramente lexical via tsvector no Postgres sem reranker"
+chunking: "recursive"
+retrievers:
+  - "bm25"
+fusion:
+  strategy: "single"
+  weights:
+    bm25: 1.0
+reranker: "none"

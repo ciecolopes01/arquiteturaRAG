@@ -47,7 +47,7 @@ Marque o status de cada passo conforme avança:
 | 28 | Graph RAG (opcional) | [x] |
 | 29 | Adaptive Retrieval / Self-RAG | [x] |
 | 30 | Auto-tuning de pesos de fusão | [x] |
-| 31 | Plataforma de benchmark comparável | [ ] |
+| 31 | Plataforma de benchmark comparável | [x] |
 | 32 | Otimização de latência | [ ] |
 
 ---
@@ -989,7 +989,21 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Rodar `rag benchmark` produz a tabela comparativa completa sem intervenção manual.
 
-**Como retomar:** Cole esta seção com a tabela de resultados do benchmark mais recente.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Formato de configuração padronizado em YAML criado no diretório `benchmarks/configs/` com 5 configurações canônicas:
+  1. `1_bm25_pure.yaml`: busca puramente léxica sem reranker.
+  2. `2_dense_pure.yaml`: busca puramente vetorial com BGE-M3.
+  3. `3_hybrid_uniform_rrf.yaml`: fusão clássica densa + BM25 com RRF uniforme (k=60).
+  4. `4_hybrid_with_reranker.yaml`: fusão híbrida com reordenação via BGE-Reranker-v2-m3.
+  5. `5_multichannel_tuned.yaml`: pipeline multicanal completo (Dense + BM25 + Graph) com pesos auto-ajustados e reranker.
+- Módulo runner `src/evaluation/benchmark.py` com avaliação sistemática e categorização por domínio de consulta (Tabelas/XLSX, Relacional/Grafo, Multimodal, Semântica, Factual).
+- Geração automática de relatórios em `benchmarks/results/benchmark_report.md` e `benchmark_report.json`.
+- CLI unificado `rag benchmark` (via `rag.py` / `rag.bat`).
+- Suíte `tests/test_benchmark_platform.py` executada com 100% de sucesso (4/4 testes passando), confirmando que a execução do comando CLI produz a tabela comparativa completa sem intervenção manual.
+
+**Como retomar:** Passo 31 concluído. O próximo passo é o Passo 32 (Otimização de latência).
 
 ---
 
