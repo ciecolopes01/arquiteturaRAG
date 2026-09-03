@@ -29,7 +29,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from src.parsing.canonical_model import Document, ElementType, Image, Paragraph, Section, Table
+from src.parsing.canonical_model import Document, ElementType, Image, Paragraph, Section, Table, VideoScene
 
 
 # ---------------------------------------------------------------------------
@@ -276,6 +276,37 @@ def chunk_recursive(
                 chunk.metadata["ocr_text"] = element.ocr_text
                 chunk.metadata["visual_description"] = element.visual_description
                 chunk.metadata["page_number"] = element.metadata.get("page_number")
+                chunks.append(chunk)
+                last_chunk_text = full_content
+
+        elif etype == ElementType.VIDEO_SCENE:
+            assert isinstance(element, VideoScene)
+            # Cenas de vídeo viram chunks multimodais dedicados (Passo 26)
+            content = element.content or ""
+            if not content.strip():
+                parts = [f"## Cena {element.scene_index} ({element.start_time_str} - {element.end_time_str})"]
+                if element.transcript:
+                    parts.append(f"### Transcrição de Áudio\n{element.transcript}")
+                if element.visual_description:
+                    parts.append(f"### Descrição Visual (Keyframe)\n{element.visual_description}")
+                if element.ocr_text:
+                    parts.append(f"### Texto na Tela (OCR)\n{element.ocr_text}")
+                content = "\n\n".join(parts)
+
+            section_ctx = f"[Vídeo: {document.title or 'Vídeo'}]\n" if document.title else ""
+            full_content = (section_ctx + content).strip()
+            if full_content:
+                chunk = make_chunk(full_content, [element.id])
+                chunk.metadata["element_type"] = "video_scene"
+                chunk.metadata["scene_index"] = element.scene_index
+                chunk.metadata["start_time"] = element.start_time
+                chunk.metadata["end_time"] = element.end_time
+                chunk.metadata["start_time_str"] = element.start_time_str
+                chunk.metadata["end_time_str"] = element.end_time_str
+                chunk.metadata["transcript"] = element.transcript
+                chunk.metadata["visual_description"] = element.visual_description
+                chunk.metadata["ocr_text"] = element.ocr_text
+                chunk.metadata["keyframe_storage_uri"] = element.keyframe_storage_uri
                 chunks.append(chunk)
                 last_chunk_text = full_content
 

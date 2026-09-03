@@ -44,6 +44,7 @@ class ElementType(str, Enum):
     TABLE = "table"
     IMAGE = "image"
     PAGE = "page"
+    VIDEO_SCENE = "video_scene"
 
 
 # ---------------------------------------------------------------------------
@@ -115,8 +116,29 @@ class Page(BaseModel):
     dependency_graph_id: Optional[str] = None
 
 
+class VideoScene(BaseModel):
+    """Cena de vídeo com transcrição de áudio, descrição visual do keyframe e OCR — Passo 26."""
+
+    id: str = Field(default_factory=_new_id)
+    element_type: ElementType = ElementType.VIDEO_SCENE
+    scene_index: int = 0
+    start_time: float = 0.0              # segundos de início
+    end_time: float = 0.0                # segundos de término
+    start_time_str: str = "00:00:00"     # timestamp formatado HH:MM:SS ou MM:SS
+    end_time_str: str = "00:00:00"       # timestamp formatado HH:MM:SS ou MM:SS
+    transcript: str = ""                 # transcrição do áudio correspondente à cena
+    visual_description: str = ""         # descrição visual do keyframe (Claude Vision ou fallback)
+    ocr_text: str = ""                   # texto na tela extraído via OCR no keyframe
+    content: str = ""                    # representação textual combinada multimodal
+    keyframe_storage_uri: Optional[str] = None # URI do keyframe no MinIO / storage
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    dependency_graph_id: Optional[str] = None
+
+    model_config = {"frozen": False}
+
+
 # Union de todos os tipos de elemento
-DocumentElement = Paragraph | Section | Table | Image | Page
+DocumentElement = Paragraph | Section | Table | Image | Page | VideoScene
 
 
 # ---------------------------------------------------------------------------

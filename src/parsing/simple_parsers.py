@@ -313,7 +313,10 @@ def parse_file(
     elif ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
         from src.parsing.image_parser import parse_image_file
         return parse_image_file(path, tenant_id=tenant_id, source_uri=source_uri)
+    elif ext in (".mp4", ".avi", ".mov", ".mkv", ".webm"):
+        from src.parsing.video_parser import parse_video
+        return parse_video(path, tenant_id=tenant_id, source_uri=source_uri)
     else:
         raise ValueError(
-            f"Extensão '{ext}' não suportada. Use .txt, .html, .pdf, .docx, .xlsx ou imagem (.png, .jpg, .jpeg, .webp)."
+            f"Extensão '{ext}' não suportada. Use .txt, .html, .pdf, .docx, .xlsx, imagem (.png, .jpg, .jpeg, .webp) ou vídeo (.mp4, .avi, .mov, .mkv)."
         )

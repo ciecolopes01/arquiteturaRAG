@@ -42,7 +42,7 @@ Marque o status de cada passo conforme avança:
 | 23 | HyDE | [x] |
 | 24 | Migração de modelo de embedding | [x] |
 | 25 | Avaliação online + feedback loop | [x] |
-| 26 | Parsing de vídeo | [ ] |
+| 26 | Parsing de vídeo | [x] |
 | 27 | Parsing de áudio | [ ] |
 | 28 | Graph RAG (opcional) | [ ] |
 | 29 | Adaptive Retrieval / Self-RAG | [ ] |
@@ -818,7 +818,21 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Pergunta do tipo "em que momento aparece X" retorna a cena certa com timestamp.
 
-**Como retomar:** Cole esta seção e diga se a pergunta de teste com timestamp está funcionando.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Schema `VideoScene` integrado ao Canonical Document Model (`src/parsing/canonical_model.py`) com atributos temporais (`start_time`, `end_time`, `start_time_str`, `end_time_str`), transcrição de áudio, descrição visual do keyframe, texto na tela via OCR e representação multimodal combinada.
+- Módulo `src/parsing/video_parser.py` implementado com:
+  * Detecção de cortes de cena automatizada com `PySceneDetect` (`detect_video_scenes`).
+  * Extração de áudio via `ffmpeg` e transcrição acelerada com timestamps precisos no nível de palavra via `faster-whisper` (`transcribe_audio_with_timestamps`).
+  * Extração de keyframe por cena no ponto médio temporal, OCR local via Tesseract (`extract_text_from_image`) e descrição visual via Claude Vision / fallback estruturado (`describe_image_visual`).
+  * Upload opcional e geração de URI de keyframes no MinIO.
+- Suporte a `VideoScene` no chunker recursivo (`src/chunking/recursive.py`) gerando chunks multimodais com metadados temporais (`start_time`, `end_time`, `start_time_str`, `end_time_str`, `scene_index`, `element_type="video_scene"`).
+- Despacho de extensões de vídeo (.mp4, .avi, .mov, .mkv, .webm) em `src/parsing/simple_parsers.py`.
+- Gerador de mídia sintética `scripts/generate_seed_videos_step26.py` criando dois vídeos de teste no seed corpus (`20_visao_computacional_e_multimodal.mp4` e `21_monitoramento_video_rag.mp4`) com transições de cena e faixas de áudio narradas.
+- Suíte de testes `tests/test_video_parser.py` executada com 100% de sucesso (6/6 testes passando), incluindo o critério de pronto validado com recuperação precisa de timestamps em perguntas temporais ("em que momento aparece X").
+
+**Como retomar:** Passo 26 concluído. O próximo passo é o Passo 27 (Parsing de áudio).
 
 ---
 
