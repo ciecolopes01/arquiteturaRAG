@@ -38,7 +38,7 @@ Marque o status de cada passo conforme avança:
 | 19 | Parsing de imagens (OCR + visão) | [x] |
 | 20 | Multi-vector / representações múltiplas | [x] |
 | 21 | Query Router completo | [x] |
-| 22 | Query Decomposition | [ ] |
+| 22 | Query Decomposition | [x] |
 | 23 | HyDE | [ ] |
 | 24 | Migração de modelo de embedding | [ ] |
 | 25 | Avaliação online + feedback loop | [ ] |
@@ -693,7 +693,15 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Nas perguntas complexas de teste, a versão decomposta recupera mais chunks relevantes que a versão direta.
 
-**Como retomar:** Cole esta seção com a comparação decomposta vs. direta nas perguntas complexas de teste.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/retrieval/decomposition.py` implementado com suporte a decomposição LLM (Claude) e decomposição heurística/sintática para perguntas compostas e comparativas.
+- Fusão multi-query via RRF ponderada com bônus de cobertura multi-tópico (`multi_query_fusion`).
+- Busca ponta a ponta `decomposed_search` integrada com o Query Router e observabilidade.
+- Suíte `tests/test_decomposition.py` com 100% de sucesso (5/5 testes passando).
+
+**Como retomar:** Passo 22 concluído. O próximo passo é o Passo 23 (HyDE).
 
 ---
 
