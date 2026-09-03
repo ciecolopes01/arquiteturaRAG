@@ -23,3 +23,8 @@ python-docx>=1.1.0
 
 # Passo 16 — parsing de planilhas XLSX
 openpyxl>=3.1.0
+
+# Passo 19 — parsing de imagens (OCR + visão)
+pytesseract>=0.3.10
+Pillow>=10.0.0
+reportlab>=4.0.0

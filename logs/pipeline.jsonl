@@ -111,3 +111,28 @@ hash=f21f785f path=unknown total=606ms cost=$0.00000 [retrieval.embedding=569ms 
 hash=53b0dba2 path=unknown total=529ms cost=$0.00000 [retrieval.embedding=514ms | retrieval.dense=13ms | retrieval.bm25=1ms | retrieval.fusion=0ms]
 {"ts": "2026-09-02T23:40:24Z", "query_hash": "efa69d20", "path": "unknown", "stages": {"retrieval.embedding": 497.0, "retrieval.dense": 12.1, "retrieval.bm25": 1.4, "retrieval.fusion": 0.1}, "total_ms": 510.7, "tokens": {"input": 0, "output": 0, "total": 0}, "cost_usd": 0.0, "recall_at_5_latest": null}
 hash=efa69d20 path=unknown total=511ms cost=$0.00000 [retrieval.embedding=497ms | retrieval.dense=12ms | retrieval.bm25=1ms | retrieval.fusion=0ms]
+[Recall@5] recall=0.1163 mrr=0.1047 n=43 mode=hybrid ms/q=624
+[ALERTA] Recall@5 caiu 0.853 (de 0.9697 para 0.1163) -- threshold=0.05. Verificar pipeline.
+[Recall@5] recall=0.9697 mrr=0.7864 n=33 mode=hybrid ms/q=1561
+[Recall@5] recall=0.9394 mrr=0.7500 n=33 mode=hybrid ms/q=1200
+[Recall@5] recall=0.9600 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.9697 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+[Recall@5] recall=0.8000 mrr=0.6500 n=33 mode=hybrid ms/q=1500
+[ALERTA] Recall@5 caiu 0.170 (de 0.9697 para 0.8000) -- threshold=0.05. Verificar pipeline.
+[Recall@5] recall=0.9600 mrr=0.7800 n=33 mode=hybrid ms/q=1500
+{"ts": "2026-09-03T00:07:32Z", "query_hash": "7f05555d", "path": "unknown", "stages": {}, "total_ms": 0, "tokens": {"input": 0, "output": 0, "total": 0}, "cost_usd": 0.0, "recall_at_5_latest": null}
+hash=7f05555d path=unknown total=0ms cost=$0.00000 []
+[Recall@5] recall=1.0000 mrr=1.0000 n=5 mode=hybrid ms/q=4552
+[Recall@5] recall=1.0000 mrr=1.0000 n=5 mode=hybrid ms/q=1154
+[Recall@5] recall=1.0000 mrr=1.0000 n=5 mode=hybrid ms/q=1068

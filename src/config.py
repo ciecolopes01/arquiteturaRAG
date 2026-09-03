@@ -12,8 +12,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # LLM
+    # LLM & Visão
     anthropic_api_key: str = ""
+    anthropic_vision_model: str = "claude-3-5-sonnet-20241022"
+
+    # OCR (Passo 19)
+    tesseract_cmd: str = ""
 
     # Embedding local (BGE-M3)
     embedding_device: str = "cpu"          # "cpu" | "cuda"

@@ -310,7 +310,10 @@ def parse_file(
     elif ext == ".xlsx":
         from src.parsing.xlsx_parser import parse_xlsx
         return parse_xlsx(path, tenant_id=tenant_id, source_uri=source_uri)
+    elif ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
+        from src.parsing.image_parser import parse_image_file
+        return parse_image_file(path, tenant_id=tenant_id, source_uri=source_uri)
     else:
         raise ValueError(
-            f"Extensão '{ext}' não suportada. Use .txt, .html, .pdf, .docx ou .xlsx."
+            f"Extensão '{ext}' não suportada. Use .txt, .html, .pdf, .docx, .xlsx ou imagem (.png, .jpg, .jpeg, .webp)."
         )

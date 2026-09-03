@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS document_registry (
 );
 """
 
-SUPPORTED_EXTENSIONS = {".txt", ".html", ".htm", ".pdf", ".docx", ".xlsx"}
+SUPPORTED_EXTENSIONS = {".txt", ".html", ".htm", ".pdf", ".docx", ".xlsx", ".png", ".jpg", ".jpeg", ".webp"}
 
 
 def stable_document_id(source_uri: str) -> str:

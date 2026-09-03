@@ -89,14 +89,16 @@ class Table(BaseModel):
 
 
 class Image(BaseModel):
-    """Imagem — nesta fase só metadados; conteúdo fica no object storage."""
+    """Imagem — Passo 19: contém OCR local e descrição visual."""
 
     id: str = Field(default_factory=_new_id)
     element_type: ElementType = ElementType.IMAGE
-    content: str = ""                     # alt-text ou caption extraída
+    content: str = ""                     # representação textual combinada (ocr + visual_description)
     storage_uri: Optional[str] = None    # URI no MinIO / S3
     width: Optional[int] = None
     height: Optional[int] = None
+    ocr_text: str = ""                   # Texto extraído via OCR (Passo 19)
+    visual_description: str = ""         # Descrição visual gerada por LLM (Passo 19)
     metadata: Dict[str, Any] = Field(default_factory=dict)
     dependency_graph_id: Optional[str] = None
 

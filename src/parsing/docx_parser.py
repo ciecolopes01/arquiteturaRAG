@@ -24,7 +24,8 @@ import re
 from pathlib import Path
 from typing import List, Optional
 
-from src.parsing.canonical_model import Document, Paragraph, Section, Table
+from src.parsing.canonical_model import Document, Image, Paragraph, Section, Table
+from src.parsing.image_parser import extract_images_from_docx
 from src.parsing.table_extractor import build_table_content
 
 
@@ -50,6 +51,8 @@ def parse_docx(
     path: str | Path,
     tenant_id: Optional[str] = None,
     source_uri: Optional[str] = None,
+    extract_images: bool = True,
+    upload_storage: bool = True,
 ) -> Document:
     """
     Lê um arquivo .docx e produz um Document no Canonical Document Model.
@@ -59,10 +62,8 @@ def parse_docx(
     2. Estilo "Heading N" / "Título N" -> Section(level=N).
     3. Estilo contendo "List" -> Paragraph com prefixo "• ".
     4. Demais parágrafos não-vazios -> Paragraph.
-    5. Tabelas (`document.tables`) -> Table, anexadas ao final (python-docx
-       não expõe a posição relativa de tabelas entre parágrafos de forma
-       direta; aceitável nesta fase, mesma limitação documentada no runbook
-       para tratamento estruturado de tabela, que é o Passo 15).
+    5. Tabelas (`document.tables`) -> Table, anexadas ao final.
+    6. Imagens embutidas -> Image (Passo 19), com OCR e descrição visual.
     """
     try:
         import docx
@@ -136,5 +137,14 @@ def parse_docx(
         # Passo 15: gera content com markdown + sumário em linguagem natural
         tbl.content = build_table_content(tbl, section_title=None)
         doc.elements.append(tbl)
+
+    # --- Imagens (Passo 19) ---
+    if extract_images:
+        images = extract_images_from_docx(
+            word_doc,
+            upload_storage=upload_storage,
+        )
+        for img in images:
+            doc.elements.append(img)
 
     return doc

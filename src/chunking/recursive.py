@@ -29,7 +29,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from src.parsing.canonical_model import Document, ElementType, Paragraph, Section, Table
+from src.parsing.canonical_model import Document, ElementType, Image, Paragraph, Section, Table
 
 
 # ---------------------------------------------------------------------------
@@ -252,8 +252,35 @@ def chunk_recursive(
             text = section_ctx + element.content
             add_text_chunks(text, [element.id])
 
+        elif etype == ElementType.IMAGE:
+            assert isinstance(element, Image)
+            # Imagens viram chunks dedicados (Passo 19)
+            content = element.content or ""
+            if not content.strip():
+                parts = []
+                if element.visual_description:
+                    parts.append(f"## Descrição Visual\n{element.visual_description}")
+                if element.ocr_text:
+                    parts.append(f"## Texto Extraído (OCR)\n{element.ocr_text}")
+                content = "\n\n".join(parts)
+
+            section_ctx = f"[Seção: {current_section_title}]\n" if current_section_title and "Contexto:" not in content else ""
+            full_content = (section_ctx + content).strip()
+            if full_content:
+                chunk = make_chunk(full_content, [element.id])
+                chunk.metadata["element_type"] = "image"
+                chunk.metadata["image_id"] = element.id
+                chunk.metadata["storage_uri"] = element.storage_uri
+                chunk.metadata["width"] = element.width
+                chunk.metadata["height"] = element.height
+                chunk.metadata["ocr_text"] = element.ocr_text
+                chunk.metadata["visual_description"] = element.visual_description
+                chunk.metadata["page_number"] = element.metadata.get("page_number")
+                chunks.append(chunk)
+                last_chunk_text = full_content
+
         else:
-            # Page, Image: ignora nesta fase
+            # Page: ignora nesta fase
             pass
 
     # Numera os chunks em ordem

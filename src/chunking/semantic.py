@@ -25,7 +25,7 @@ import numpy as np
 
 from src.chunking.recursive import Chunk, _max_words
 from src.embedding.model import embed_texts
-from src.parsing.canonical_model import Document, ElementType, Paragraph, Section, Table
+from src.parsing.canonical_model import Document, ElementType, Image, Paragraph, Section, Table
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -222,6 +222,45 @@ def chunk_semantic(
                 },
             )
             chunks.append(tbl_chunk)
+            chunk_index += 1
+
+        elif etype == ElementType.IMAGE:
+            assert isinstance(element, Image)
+            flush_section_sentences()
+            img_content = element.content or ""
+            if not img_content.strip():
+                parts = []
+                if element.visual_description:
+                    parts.append(f"## Descrição Visual\n{element.visual_description}")
+                if element.ocr_text:
+                    parts.append(f"## Texto Extraído (OCR)\n{element.ocr_text}")
+                img_content = "\n\n".join(parts)
+
+            prefix = f"[Seção: {current_section_title}]\n" if current_section_title and "Contexto:" not in img_content else ""
+            content = prefix + img_content.strip()
+
+            img_chunk = Chunk(
+                document_id=document.id,
+                content=content.strip(),
+                tenant_id=document.tenant_id,
+                acl=[entry.model_dump() for entry in document.acl],
+                metadata={
+                    "strategy": "semantic",
+                    "source_uri": document.source_uri,
+                    "document_title": document.title,
+                    "section_title": current_section_title,
+                    "chunk_index": chunk_index,
+                    "element_type": "image",
+                    "image_id": element.id,
+                    "storage_uri": element.storage_uri,
+                    "width": element.width,
+                    "height": element.height,
+                    "ocr_text": element.ocr_text,
+                    "visual_description": element.visual_description,
+                    "page_number": element.metadata.get("page_number"),
+                },
+            )
+            chunks.append(img_chunk)
             chunk_index += 1
 
     flush_section_sentences()

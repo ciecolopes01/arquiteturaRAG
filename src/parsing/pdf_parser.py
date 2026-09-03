@@ -36,7 +36,8 @@ from collections import Counter
 from pathlib import Path
 from typing import List, Optional
 
-from src.parsing.canonical_model import Document, Page, Paragraph, Section, Table
+from src.parsing.canonical_model import Document, Image, Page, Paragraph, Section, Table
+from src.parsing.image_parser import extract_images_from_pdf_page
 from src.parsing.table_extractor import (
     build_table_content,
     extract_tables_from_pdf_page,
@@ -63,22 +64,27 @@ def parse_pdf(
     path: str | Path,
     tenant_id: Optional[str] = None,
     source_uri: Optional[str] = None,
+    extract_images: bool = True,
+    upload_storage: bool = True,
 ) -> Document:
     """
     Lê um arquivo .pdf e produz um Document no Canonical Document Model.
 
-    Fluxo (Passo 15):
+    Fluxo (Passo 15 + Passo 19):
     1. Abre o PDF com pymupdf e extrai spans de texto (com tamanho de fonte
        e bbox) de cada página via get_text("rawdict").
     2. Detecta tabelas por página via `page.find_tables()` e armazena suas
        bboxes para filtrar linhas de texto internas.
-    3. Calcula o tamanho de fonte "corpo" (o mais comum excluindo spans em
+    3. Extrai imagens embutidas por página com OCR (Tesseract) e descrição
+       visual (Passo 19).
+    4. Calcula o tamanho de fonte "corpo" (o mais comum excluindo spans em
        área de tabela).
-    4. Para cada linha fora de tabela: heading (Section) se a fonte for
+    5. Para cada linha fora de tabela: heading (Section) se a fonte for
        notavelmente maior que o corpo e o texto for curto; senão vira Paragraph.
-    5. Para cada tabela: cria elemento Table com markdown + sumário em
+    6. Para cada tabela: cria elemento Table com markdown + sumário em
        linguagem natural via build_table_content().
-    6. Um Page é criado por página, agrupando todos os elementos dela.
+    7. Para cada imagem: cria elemento Image com ocr_text e visual_description.
+    8. Um Page é criado por página, agrupando todos os elementos dela.
     """
     try:
         import fitz  # pymupdf
@@ -93,9 +99,9 @@ def parse_pdf(
 
     # -----------------------------------------------------------------------
     # Passo 1: coleta todas as linhas (texto + tamanho de fonte + bbox)
-    # por página, e detecta tabelas por página.
+    # por página, detecta tabelas e extrai imagens por página.
     # -----------------------------------------------------------------------
-    pages_data: List[dict] = []  # por página: {"lines": [...], "tables": [...]}
+    pages_data: List[dict] = []  # por página: {"lines": [...], "tables": [...], "images": [...]}
     all_sizes: List[float] = []
 
     for page_number, page in enumerate(pdf, start=1):
@@ -110,6 +116,16 @@ def parse_pdf(
                 table_bboxes.append(ft.bbox)
             except Exception:
                 pass
+
+        # Extrai imagens embutidas (Passo 19)
+        page_images = []
+        if extract_images:
+            page_images = extract_images_from_pdf_page(
+                page=page,
+                pdf_doc=pdf,
+                page_number=page_number,
+                upload_storage=upload_storage,
+            )
 
         # Extrai linhas de texto (excluindo bboxes de tabela)
         page_dict = page.get_text("dict")
@@ -130,7 +146,7 @@ def parse_pdf(
                 lines_out.append({"text": text, "size": size, "bbox": bbox})
                 all_sizes.append(round(size, 1))
 
-        pages_data.append({"lines": lines_out, "tables": page_tables})
+        pages_data.append({"lines": lines_out, "tables": page_tables, "images": page_images})
 
     body_size = Counter(all_sizes).most_common(1)[0][0] if all_sizes else 11.0
 
@@ -165,6 +181,7 @@ def parse_pdf(
     for page_number, page_data in enumerate(pages_data, start=1):
         lines = page_data["lines"]
         page_tables: List[Table] = page_data["tables"]
+        page_images: List[Image] = page_data.get("images", [])
 
         page_element_ids: List[str] = []
         page_text_parts: List[str] = []
@@ -251,12 +268,24 @@ def parse_pdf(
             page_element_ids.append(tbl.id)
             page_text_parts.append(tbl.content[:200])  # resumo para page.content
 
+        # ---- Adiciona imagens desta página ao documento (Passo 19) ----
+        for img in page_images:
+            if current_section and not img.metadata.get("section_title"):
+                img.metadata["section_title"] = current_section.title
+            doc.elements.append(img)
+            page_element_ids.append(img.id)
+            page_text_parts.append(img.content[:200])  # resumo para page.content
+
         # ---- Página ----
         page_el = Page(
             page_number=page_number,
             content="\n".join(page_text_parts),
             element_ids=page_element_ids,
-            metadata={"line_count": len(lines), "table_count": len(page_tables)},
+            metadata={
+                "line_count": len(lines),
+                "table_count": len(page_tables),
+                "image_count": len(page_images),
+            },
         )
         doc.elements.append(page_el)
 

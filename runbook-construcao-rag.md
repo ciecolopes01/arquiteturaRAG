@@ -35,7 +35,7 @@ Marque o status de cada passo conforme avança:
 | 16 | Parsing de XLSX | [x] |
 | 17 | Chunking: Parent/Child | [x] |
 | 18 | Chunking: Semantic | [x] |
-| 19 | Parsing de imagens (OCR + visão) | [ ] |
+| 19 | Parsing de imagens (OCR + visão) | [x] |
 | 20 | Multi-vector / representações múltiplas | [ ] |
 | 21 | Query Router completo | [ ] |
 | 22 | Query Decomposition | [ ] |
@@ -599,7 +599,18 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Pergunta do golden dataset sobre conteúdo de uma imagem específica retorna o chunk/imagem certa entre os top resultados.
 
-**Como retomar:** Cole esta seção e diga quantas imagens já foram processadas e se as perguntas de teste sobre imagem estão funcionando.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/parsing/image_parser.py` implementado com detecção automática do Tesseract OCR local (v5.4), descrição visual multimodal via Claude 3.5 Sonnet (com fallback estruturado determinístico offline) e upload para MinIO em `rag-documents/images/{image_id}.png`.
+- Canonical Document Model (`src/parsing/canonical_model.py`): classe `Image` expandida com `ocr_text`, `visual_description` e consolidação textual em `content`.
+- Parsers `parse_pdf` e `parse_docx` integrados para extração automática de imagens embutidas (filtrando ícones decorativos <50px); `parse_file` com suporte direto a arquivos de imagem (`.png`, `.jpg`, `.jpeg`, `.webp`).
+- Chunkers `recursive`, `parent_child` e `semantic` atualizados com suporte de primeira classe a elementos de imagem.
+- 4 documentos multimodais gerados no corpus seed (`16_arquitetura_multimodal_rag.pdf`, `17_metricas_desempenho_visao.pdf`, `18_fluxo_processamento_imagens.docx`, `19_benchmark_extracao_visual.pdf`) contendo 5 figuras e diagramas de alta resolução.
+- 5 perguntas adicionadas ao golden dataset (`gd-44` a `gd-48`), cobrindo diagramas de pipeline, gráficos de acurácia, fluxos de indexação e infográficos comparativos.
+- Avaliação offline: Recall@5 = 1.0000 e MRR = 1.0000 nas 5 perguntas multimodais. Bateria de 12 testes em `tests/test_image_parser.py` com 100% de sucesso.
+
+**Como retomar:** Passo 19 concluído. O próximo passo é o Passo 20 (Multi-vector / representações múltiplas).
 
 ---
 

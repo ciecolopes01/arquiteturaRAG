@@ -299,5 +299,40 @@
     "expected_chunk_ids": ["01790cf6-eb60-5559-b3ba-e3d1cc68a323"],
     "source_doc": "15_kpis_produto.xlsx",
     "notes": "Passo 16 (XLSX): MRR R$ 420.000 e ARR R$ 5.040.000 em Jan_2026"
+  },
+  {
+    "id": "gd-44",
+    "question": "Em que pagina aparece a figura do diagrama do pipeline multimodal RAG?",
+    "expected_chunk_ids": ["c4bee29c-62f9-42de-a547-c677d51c3927", "a329832f-9dd3-47b0-90d1-ccc971e9c805"],
+    "source_doc": "16_arquitetura_multimodal_rag.pdf",
+    "notes": "Passo 19 (imagem): Figura 1 na página 1 do diagrama de pipeline multimodal RAG"
+  },
+  {
+    "id": "gd-45",
+    "question": "Qual a taxa de acuracia do OCR a 300 DPI segundo o grafico de resolucao?",
+    "expected_chunk_ids": ["845a57d0-b42d-42c1-ab11-e127afcf5d6c", "2ba80ed6-87b3-4c02-8053-ae81c67f738e"],
+    "source_doc": "17_metricas_desempenho_visao.pdf",
+    "notes": "Passo 19 (imagem): 98.4% de acurácia a 300 DPI no gráfico"
+  },
+  {
+    "id": "gd-46",
+    "question": "Qual a diferenca entre OCR tradicional e visao multimodal no quadro comparativo da pagina 2?",
+    "expected_chunk_ids": ["3e867e18-c241-4a49-b84b-7917331a7155", "0ece6986-7b43-4303-8a5e-b880e5039f46"],
+    "source_doc": "19_benchmark_extracao_visual.pdf",
+    "notes": "Passo 19 (imagem): Infográfico na página 2 comparando OCR e visão multimodal"
+  },
+  {
+    "id": "gd-47",
+    "question": "Em que pagina aparece o fluxo de indexacao de imagens e busca hibrida?",
+    "expected_chunk_ids": ["39911d86-ae4f-4c33-9ac6-0f59cac33aa7", "6df57de1-58cf-4998-a600-2e3c28886899"],
+    "source_doc": "16_arquitetura_multimodal_rag.pdf",
+    "notes": "Passo 19 (imagem): Figura 1 na página 2 do fluxo de indexação de imagens"
+  },
+  {
+    "id": "gd-48",
+    "question": "Qual modelo de visao gera sumarios com analise semantica visual segundo as diretrizes de processamento de imagens?",
+    "expected_chunk_ids": ["9ec8339c-bfde-40eb-9fc2-9e0eddc29e96", "d5853836-fba3-4a18-91fc-ddd4e9ec962c"],
+    "source_doc": "18_fluxo_processamento_imagens.docx",
+    "notes": "Passo 19 (imagem): Claude 3.5 Sonnet gera sumários semânticos"
   }
 ]

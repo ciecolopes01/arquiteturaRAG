@@ -31,7 +31,7 @@ from src.chunking.recursive import (
     _max_words,
     _split_text,
 )
-from src.parsing.canonical_model import Document, ElementType, Paragraph, Section, Table
+from src.parsing.canonical_model import Document, ElementType, Image, Paragraph, Section, Table
 
 
 @dataclass
@@ -150,6 +150,47 @@ def _build_parent_chunks(
                 },
             )
             parents.append(tbl_chunk)
+
+        elif etype == ElementType.IMAGE:
+            assert isinstance(element, Image)
+            flush_parent()
+            img_content = element.content or ""
+            if not img_content.strip():
+                parts = []
+                if element.visual_description:
+                    parts.append(f"## Descrição Visual\n{element.visual_description}")
+                if element.ocr_text:
+                    parts.append(f"## Texto Extraído (OCR)\n{element.ocr_text}")
+                img_content = "\n\n".join(parts)
+
+            sec_ctx = f"[Seção: {current_section_title}]\n" if current_section_title and "Contexto:" not in img_content else ""
+            img_full = (sec_ctx + img_content).strip()
+
+            img_chunk = Chunk(
+                document_id=document.id,
+                content=img_full,
+                tenant_id=document.tenant_id,
+                acl=[entry.model_dump() for entry in document.acl],
+                parent_chunk_id=None,
+                metadata={
+                    "is_parent": True,
+                    "is_child": False,
+                    "element_type": "image",
+                    "image_id": element.id,
+                    "storage_uri": element.storage_uri,
+                    "width": element.width,
+                    "height": element.height,
+                    "ocr_text": element.ocr_text,
+                    "visual_description": element.visual_description,
+                    "page_number": element.metadata.get("page_number"),
+                    "source_uri": document.source_uri,
+                    "document_title": document.title,
+                    "section_title": current_section_title,
+                    "parent_index": len(parents),
+                    "element_ids": [element.id],
+                },
+            )
+            parents.append(img_chunk)
 
         elif etype == ElementType.PARAGRAPH:
             assert isinstance(element, Paragraph)
