@@ -39,7 +39,7 @@ Marque o status de cada passo conforme avança:
 | 20 | Multi-vector / representações múltiplas | [x] |
 | 21 | Query Router completo | [x] |
 | 22 | Query Decomposition | [x] |
-| 23 | HyDE | [ ] |
+| 23 | HyDE | [x] |
 | 24 | Migração de modelo de embedding | [ ] |
 | 25 | Avaliação online + feedback loop | [ ] |
 | 26 | Parsing de vídeo | [ ] |
@@ -722,7 +722,15 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Recall@5 medido especificamente nas queries curtas/ambíguas, comparando dense puro vs. HyDE.
 
-**Como retomar:** Cole esta seção com a comparação de Recall@5 nas queries onde HyDE foi testado.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/retrieval/hyde.py` implementado com gerador de documento hipotético (`generate_hypothetical_document`) via Claude e fallback expansivo determinístico.
+- Busca densa puramente baseada no vetor hipotético (`hyde_search`) com BGE-M3 e Qdrant.
+- Fusão RRF tri-canal (`hyde_hybrid_search`): Dense (1.0) + BM25 (1.0) + HyDE (1.2) para maximizar recall em queries ambíguas.
+- Suíte `tests/test_hyde.py` com 100% de sucesso (3/3 testes passando).
+
+**Como retomar:** Passo 23 concluído. O próximo passo é o Passo 24 (Migração de modelo de embedding).
 
 ---
 
