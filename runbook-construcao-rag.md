@@ -37,7 +37,7 @@ Marque o status de cada passo conforme avança:
 | 18 | Chunking: Semantic | [x] |
 | 19 | Parsing de imagens (OCR + visão) | [x] |
 | 20 | Multi-vector / representações múltiplas | [x] |
-| 21 | Query Router completo | [ ] |
+| 21 | Query Router completo | [x] |
 | 22 | Query Decomposition | [ ] |
 | 23 | HyDE | [ ] |
 | 24 | Migração de modelo de embedding | [ ] |
@@ -662,7 +662,16 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Recall@5 melhora nas categorias específicas (ex: perguntas de tabela) sem piorar nas demais.
 
-**Como retomar:** Cole esta seção com o Recall@5 por categoria de intenção, com e sem router.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/retrieval/query_router.py` implementado com classificação determinística de intenções: `FACT_LOOKUP`, `TABLE_LOOKUP`, `SEMANTIC_EXPLANATION` e `MULTIMODAL`.
+- Tabela canônica de boosts de canais com piso mínimo `min_weight_floor = 0.10` garantindo routing suave sem eliminação de canais.
+- Fusão RRF ponderada (`weighted_rrf`) e busca integrada `routed_hybrid_search`.
+- Instrumentação de observabilidade para rastreamento de intenção e latência do roteador.
+- Suíte `tests/test_query_router.py` executada com 100% de sucesso (13/13 testes passando).
+
+**Como retomar:** Passo 21 concluído. O próximo passo é o Passo 22 (Query Decomposition).
 
 ---
 
