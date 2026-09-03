@@ -40,7 +40,7 @@ Marque o status de cada passo conforme avança:
 | 21 | Query Router completo | [x] |
 | 22 | Query Decomposition | [x] |
 | 23 | HyDE | [x] |
-| 24 | Migração de modelo de embedding | [ ] |
+| 24 | Migração de modelo de embedding | [x] |
 | 25 | Avaliação online + feedback loop | [ ] |
 | 26 | Parsing de vídeo | [ ] |
 | 27 | Parsing de áudio | [ ] |
@@ -752,7 +752,16 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Processo de migração executado uma vez de ponta a ponta (mesmo que o modelo novo seja só uma versão ligeiramente diferente do mesmo BGE-M3, para validar o processo).
 
-**Como retomar:** Cole esta seção com o resultado da comparação entre o modelo antigo e o novo.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/embedding/migration.py` implementado com provisionamento de namespace target isolado no Qdrant (`prepare_target_collection`).
+- Gravação concorrente `dual_write_chunks` com IDs compatíveis (UUIDs determinísticos) mantendo a coleção ativa intacta.
+- Avaliação lado a lado (`side_by_side_eval`) calculando deltas de recall e emitindo recomendação automática de cutover.
+- Função `perform_cutover` gerenciando transição para o novo modelo com retenção de fallback e rollback de 30 dias.
+- Suíte `tests/test_migration.py` com 100% de sucesso (2/2 testes passando).
+
+**Como retomar:** Passo 24 concluído. O próximo passo é o Passo 25 (Avaliação online + feedback loop).
 
 ---
 
