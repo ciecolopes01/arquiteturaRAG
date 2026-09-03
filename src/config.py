@@ -46,5 +46,12 @@ class Settings(BaseSettings):
     # Redis (Passo 32)
     redis_url: str = "redis://localhost:6379/0"
 
+    # Auto-Tuning de Pesos de Fusão (Passo 30)
+    fusion_tuned_weights: dict = {
+        "dense": 1.2,
+        "bm25": 1.0,
+        "graph": 0.8,
+    }
+
 
 settings = Settings()

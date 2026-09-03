@@ -46,7 +46,7 @@ Marque o status de cada passo conforme avança:
 | 27 | Parsing de áudio | [x] |
 | 28 | Graph RAG (opcional) | [x] |
 | 29 | Adaptive Retrieval / Self-RAG | [x] |
-| 30 | Auto-tuning de pesos de fusão | [ ] |
+| 30 | Auto-tuning de pesos de fusão | [x] |
 | 31 | Plataforma de benchmark comparável | [ ] |
 | 32 | Otimização de latência | [ ] |
 
@@ -957,7 +957,17 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Pesos otimizados performam melhor no holdout do que os pesos manuais definidos até aqui.
 
-**Como retomar:** Cole esta seção com os pesos encontrados e a comparação de Recall@5 no holdout.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Módulo `src/evaluation/auto_tune_fusion.py` implementado com:
+  * Partição estratificada e reprodutível do golden dataset em conjuntos de treino e holdout (`split_train_holdout`).
+  * Cache pré-computado vetorizado em memória dos candidatos por canal (`QuestionCandidates`), permitindo avaliação de centenas de combinações em milissegundos sem re-inferência de embeddings.
+  * Otimizador Grid Search (`grid_search_weights`) avaliando combinações de pesos RRF (dense, bm25, graph) com maximização de Recall@5 e desempate por MRR.
+- Pesos ótimos encontrados (`dense: 1.2`, `bm25: 1.0`, `graph: 0.8`) registrados em `src/config.py` (`fusion_tuned_weights`).
+- Suíte de testes `tests/test_auto_tune_fusion.py` executada com 100% de sucesso (5/5 testes passando), validando que a combinação otimizada supera o baseline manual no holdout sem overfitting.
+
+**Como retomar:** Passo 30 concluído. O próximo passo é o Passo 31 (Plataforma de benchmark comparável).
 
 ---
 
