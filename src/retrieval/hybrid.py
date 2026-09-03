@@ -64,8 +64,10 @@ class HybridResult:
     section_title: str = ""
     dense_rank: Optional[int] = None    # posição no ranking dense (1-indexed)
     bm25_rank: Optional[int] = None     # posição no ranking BM25 (1-indexed)
+    graph_rank: Optional[int] = None    # posição no ranking Graph (Passo 28)
     dense_score: Optional[float] = None
     bm25_score: Optional[float] = None
+    graph_score: Optional[float] = None
     parent_chunk_id: Optional[str] = None
     parent_content: Optional[str] = None
 
@@ -77,6 +79,8 @@ class HybridResult:
             s.append("dense")
         if self.bm25_rank is not None:
             s.append("bm25")
+        if self.graph_rank is not None:
+            s.append("graph")
         return s
 
 
@@ -98,31 +102,35 @@ def reciprocal_rank_fusion(
     top_k: int,
     k: int = RRF_K,
     weight: float = RRF_WEIGHT,
+    weights: Optional[Dict[str, float]] = None,
 ) -> List[HybridResult]:
     """
     Funde múltiplas listas de ranking via RRF.
 
     Parâmetros:
-    - ranked_lists : {"dense": [...], "bm25": [...]}
+    - ranked_lists : {"dense": [...], "bm25": [...], "graph": [...]}
                      cada lista é uma lista de dicts com "chunk_id", "content", "score"
     - top_k        : número de resultados finais
     - k            : constante de suavização (padrão 60)
-    - weight       : peso de cada canal (padrão 1.0 uniforme)
+    - weight       : peso default uniforme
+    - weights      : pesos customizados por canal {"dense": 1.4, "bm25": 0.6, "graph": 1.2}
 
     Retorna lista de HybridResult ordenada por rrf_score desc.
     """
-    # Acumula scores e metadados por chunk_id
     scores: Dict[str, float] = {}
     meta: Dict[str, dict] = {}      # chunk_id -> payload do primeiro canal que o viu
     ranks: Dict[str, Dict[str, int]] = {}   # chunk_id -> {canal: rank}
     raw_scores: Dict[str, Dict[str, float]] = {}
 
+    channel_weights = weights or {}
+
     for channel_name, results in ranked_lists.items():
+        w = channel_weights.get(channel_name, weight)
         for rank_0, item in enumerate(results):
             cid = item["chunk_id"]
             rank_1 = rank_0 + 1  # 1-indexed
 
-            contribution = weight / (k + rank_1)
+            contribution = w / (k + rank_1)
             scores[cid] = scores.get(cid, 0.0) + contribution
 
             if cid not in meta:
@@ -153,8 +161,10 @@ def reciprocal_rank_fusion(
                 section_title=m.get("section_title", ""),
                 dense_rank=r.get("dense"),
                 bm25_rank=r.get("bm25"),
+                graph_rank=r.get("graph"),
                 dense_score=rs.get("dense"),
                 bm25_score=rs.get("bm25"),
+                graph_score=rs.get("graph"),
                 parent_chunk_id=m.get("parent_chunk_id"),
                 parent_content=m.get("parent_content"),
             )

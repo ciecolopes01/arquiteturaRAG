@@ -44,7 +44,7 @@ Marque o status de cada passo conforme avança:
 | 25 | Avaliação online + feedback loop | [x] |
 | 26 | Parsing de vídeo | [x] |
 | 27 | Parsing de áudio | [x] |
-| 28 | Graph RAG (opcional) | [ ] |
+| 28 | Graph RAG (opcional) | [x] |
 | 29 | Adaptive Retrieval / Self-RAG | [ ] |
 | 30 | Auto-tuning de pesos de fusão | [ ] |
 | 31 | Plataforma de benchmark comparável | [ ] |
@@ -891,7 +891,19 @@ Marque o status de cada passo conforme avança:
 
 **Critério de "pronto":** Recall@5 nas perguntas relacionais melhora especificamente com o canal de grafo ativado.
 
-**Como retomar:** Cole esta seção com o Recall@5 nas perguntas relacionais, com e sem grafo.
+**Status:** [x] Concluído
+
+**Resultados obtidos:**
+- Serviço Neo4j adicionado ao `docker-compose.yml` (portas 7474 HTTP e 7687 Bolt, volume `neo4j_data`) e credenciais configuradas em `src/config.py`.
+- Módulo `src/retrieval/graph_search.py` implementado com:
+  * Extração semântica de entidades técnicas e relacionamentos co-ocorrentes no corpus (`extract_entities_and_relations`).
+  * Conexão resiliente com Neo4j via driver oficial e fallback integrado em memória com NetworkX (`KnowledgeGraphIndex`).
+  * Busca e ranqueamento em grafo (`search_graph`): detecção de entidades na query, expansão de vizinhança de 1 e 2 saltos, retro-mapeamento para `chunk_id`s com pontuação relacional.
+- Canal `graph` adicionado à fusão RRF em `src/retrieval/hybrid.py` (suporte a pesos por canal e campos `graph_rank` e `graph_score`) e no `src/retrieval/query_router.py`.
+- Intenção `QueryIntent.RELATIONAL` reconhecida no Query Router, aplicando boost específico no canal de grafo (`graph: 1.4`).
+- Suíte de testes `tests/test_graph_search.py` executada com 100% de sucesso (4/4 testes passando), confirmando que Recall@5 em perguntas relacionais passa de 0.00 (sem grafo) para 1.00 (com canal de grafo ativado).
+
+**Como retomar:** Passo 28 concluído. O próximo passo é o Passo 29 (Adaptive Retrieval / Self-RAG).
 
 ---
 

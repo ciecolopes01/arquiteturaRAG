@@ -290,6 +290,23 @@ def search_bm25(
     if trace is not None:
         trace.record_stage("retrieval.bm25", _bm25_ms, top_k=top_k)
 
+    if not rows and use_plain:
+        import re
+        words = [w for w in re.findall(r"\w+", query.lower()) if len(w) > 2 and w not in {"qual", "quais", "onde", "como", "quando", "para", "pela", "pelo", "que", "com", "dos", "das"}]
+        if words:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                try:
+                    or_terms = " | ".join(words)
+                    cur.execute(SEARCH_SQL_SIMPLE, {
+                        "query_text": or_terms,
+                        "tenant_id": tenant_id or "",
+                        "principals": principals or [],
+                        "top_k": top_k,
+                    })
+                    rows = cur.fetchall()
+                except Exception:
+                    conn.rollback()
+
     if not rows:
         return []
 

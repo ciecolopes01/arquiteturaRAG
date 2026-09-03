@@ -43,7 +43,20 @@ services:
       - minio_data:/data
     restart: unless-stopped
 
+  neo4j:
+    image: neo4j:5-community
+    container_name: rag_neo4j
+    ports:
+      - "7474:7474"   # Interface HTTP
+      - "7687:7687"   # Protocolo Bolt
+    environment:
+      NEO4J_AUTH: neo4j/rag_neo4j_password
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+
 volumes:
   qdrant_data:
   postgres_data:
   minio_data:
+  neo4j_data:

@@ -38,5 +38,13 @@ class Settings(BaseSettings):
     minio_bucket: str = "rag-documents"
     minio_secure: bool = False
 
+    # Neo4j (Passo 28)
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "rag_neo4j_password"
+
+    # Redis (Passo 32)
+    redis_url: str = "redis://localhost:6379/0"
+
 
 settings = Settings()
