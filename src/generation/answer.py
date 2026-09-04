@@ -29,9 +29,12 @@ Modo degradado (sem ANTHROPIC_API_KEY):
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, Dict, Iterator, List, Optional
+
+logger = logging.getLogger("rag.answer")
 
 # Observabilidade (Passo 14)
 try:
@@ -55,6 +58,45 @@ except ImportError:
 
 from src.config import settings
 from src.retrieval.hybrid import HybridResult, hybrid_search
+
+
+def _serialize_chunk(c: HybridResult) -> Dict[str, Any]:
+    return {
+        "chunk_id": c.chunk_id,
+        "content": c.content,
+        "rrf_score": c.rrf_score,
+        "source_uri": c.source_uri,
+        "document_title": c.document_title,
+        "section_title": c.section_title,
+        "dense_rank": c.dense_rank,
+        "bm25_rank": c.bm25_rank,
+        "graph_rank": c.graph_rank,
+        "dense_score": c.dense_score,
+        "bm25_score": c.bm25_score,
+        "graph_score": c.graph_score,
+        "parent_chunk_id": c.parent_chunk_id,
+        "parent_content": c.parent_content,
+    }
+
+
+def _deserialize_chunk(d: Dict[str, Any]) -> HybridResult:
+    return HybridResult(
+        chunk_id=d.get("chunk_id", ""),
+        content=d.get("content", ""),
+        rrf_score=float(d.get("rrf_score", 0.0)),
+        source_uri=d.get("source_uri"),
+        document_title=d.get("document_title"),
+        section_title=d.get("section_title"),
+        dense_rank=d.get("dense_rank"),
+        bm25_rank=d.get("bm25_rank"),
+        graph_rank=d.get("graph_rank"),
+        dense_score=d.get("dense_score"),
+        bm25_score=d.get("bm25_score"),
+        graph_score=d.get("graph_score"),
+        parent_chunk_id=d.get("parent_chunk_id"),
+        parent_content=d.get("parent_content"),
+    )
+
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -315,10 +357,52 @@ def _call_claude(
 # Função principal
 # ---------------------------------------------------------------------------
 
+def _stream_claude(
+    query: str,
+    chunks: List[HybridResult],
+    model: str,
+    max_tokens: int = MAX_OUTPUT_TOKENS,
+) -> Iterator[str]:
+    """Transmite tokens de resposta diretamente da API Anthropic."""
+    try:
+        import anthropic
+    except ImportError:
+        raise ImportError(
+            "SDK Anthropic não instalado. Execute:\n"
+            "  pip install anthropic"
+        )
+
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    context = _build_context_block(chunks)
+    human_prompt = _build_human_prompt(query, context)
+
+    system_blocks = [
+        {
+            "type": "text",
+            "text": SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+    with client.messages.stream(
+        model=model,
+        max_tokens=max_tokens,
+        system=system_blocks,
+        messages=[{"role": "user", "content": human_prompt}],
+    ) as stream_ctx:
+        for text in stream_ctx.text_stream:
+            yield text
+
+
+# ---------------------------------------------------------------------------
+# Função principal
+# ---------------------------------------------------------------------------
+
 def answer(
     query: str,
     top_k: int = MAX_CONTEXT_CHUNKS,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     model: str = DEFAULT_MODEL,
     stream: bool = False,
     dense_candidates: int = 20,
@@ -336,7 +420,8 @@ def answer(
     Parâmetros:
     - query             : pergunta do usuário.
     - top_k             : número de chunks passados ao LLM (contexto).
-    - tenant_id         : filtro de tenant/ACL — repassado ao retrieval.
+    - tenant_id         : filtro de tenant — repassado ao retrieval.
+    - principals        : filtro de ACL — repassado ao retrieval e chave de cache.
     - model             : modelo Claude a usar.
     - stream            : True habilita streaming (imprime tokens conforme chegam).
     - dense_candidates  : candidatos do canal dense antes do RRF.
@@ -361,6 +446,7 @@ def answer(
             query=query,
             top_k=top_k,
             tenant_id=tenant_id,
+            principals=principals,
             model=model,
             stream=stream,
             dense_candidates=dense_candidates,
@@ -379,6 +465,7 @@ def _answer_impl(
     query: str,
     top_k: int = MAX_CONTEXT_CHUNKS,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     model: str = DEFAULT_MODEL,
     stream: bool = False,
     dense_candidates: int = 20,
@@ -386,22 +473,24 @@ def _answer_impl(
     expand_parents: bool = True,
     max_output_tokens: int = MAX_OUTPUT_TOKENS,
 ) -> AnswerResult:
-    # --- 0. Cache de Resposta (Passo 32) ---
+    # --- 0. Cache de Resposta (Passo 32, isolado por tenant e ACL) ---
     try:
         from src.optimization.caching import cache
-        cached = cache.get_response(query=query, tenant_id=tenant_id or "")
+        cached = cache.get_response(query=query, tenant_id=tenant_id or "", principals=principals)
         if cached is not None:
             print(f"[answer] Cache HIT para query: '{query[:40]}...'")
+            chunks_raw = cached.get("chunks_used", [])
+            restored_chunks = [_deserialize_chunk(c) for c in chunks_raw] if chunks_raw else []
             return AnswerResult(
                 answer=cached.get("answer", ""),
-                chunks_used=[],
+                chunks_used=restored_chunks,
                 model=cached.get("model", model) + " (cached)",
                 simulated=cached.get("simulated", False),
                 latency_ms=1.0,
-                source_uris=cached.get("source_uris", []),
+                source_uris=cached.get("source_uris", [c.source_uri for c in restored_chunks if c.source_uri]),
             )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Falha na consulta ao cache: %s", e)
 
     # --- 1. Retrieval híbrido ---
     t_retrieval = time.time()
@@ -409,6 +498,7 @@ def _answer_impl(
         query,
         top_k=top_k,
         tenant_id=tenant_id,
+        principals=principals,
         dense_candidates=dense_candidates,
         bm25_candidates=bm25_candidates,
     )
@@ -444,21 +534,23 @@ def _answer_impl(
             f"{result.input_tokens}→{result.output_tokens} tokens"
         )
 
-    # Salva no cache de respostas (Passo 32)
+    # Salva no cache de respostas (Passo 32, isolado por tenant e ACL)
     try:
         from src.optimization.caching import cache
         cache.set_response(
             query=query,
             tenant_id=tenant_id or "",
+            principals=principals,
             response_payload={
                 "answer": result.answer,
                 "model": result.model,
                 "simulated": result.simulated,
                 "source_uris": result.source_uris,
+                "chunks_used": [_serialize_chunk(c) for c in result.chunks_used],
             },
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Falha na gravação do cache: %s", e)
 
     return result
 
@@ -467,15 +559,48 @@ def answer_stream(
     query: str,
     top_k: int = MAX_CONTEXT_CHUNKS,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     model: str = DEFAULT_MODEL,
-):
+    expand_parents: bool = True,
+) -> Iterator[str]:
     """
-    Generator para streaming token-a-token da resposta final (Passo 32).
-    Permite exibição progressiva com baixíssimo Time-to-First-Token (TTFT).
+    Generator para streaming token-a-token da resposta final.
+    Executa o retrieval híbrido com pré-filtro de tenant e ACL (principals)
+    e transmite os tokens progressivamente conforme são gerados pelo LLM.
     """
-    res = answer(query=query, top_k=top_k, tenant_id=tenant_id, model=model, stream=False)
-    # Se gerado com tokens, faz yield das palavras/tokens progressivamente
-    words = res.answer.split(" ")
-    for i, w in enumerate(words):
-        yield w + (" " if i < len(words) - 1 else "")
+    # 0. Cache check
+    try:
+        from src.optimization.caching import cache
+        cached = cache.get_response(query=query, tenant_id=tenant_id or "", principals=principals)
+        if cached is not None:
+            words = cached.get("answer", "").split(" ")
+            for i, w in enumerate(words):
+                yield w + (" " if i < len(words) - 1 else "")
+            return
+    except Exception as e:
+        logger.debug("Falha na consulta ao cache em answer_stream: %s", e)
+
+    # 1. Retrieval
+    chunks = hybrid_search(
+        query,
+        top_k=top_k,
+        tenant_id=tenant_id,
+        principals=principals,
+    )
+    if not chunks:
+        yield "Não encontrei documentos relevantes para essa pergunta."
+        return
+
+    if expand_parents and chunks:
+        chunks = expand_parent_context(chunks)
+
+    # 2. Streaming LLM
+    if not settings.anthropic_api_key:
+        sim = _simulated_answer(query, chunks)
+        words = sim.answer.split(" ")
+        for i, w in enumerate(words):
+            yield w + (" " if i < len(words) - 1 else "")
+    else:
+        yield from _stream_claude(query, chunks, model=model)
+
 

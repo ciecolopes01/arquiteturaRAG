@@ -17,6 +17,7 @@ Fórmula RRF Ponderada (§5 da arquitetura revisada):
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -25,7 +26,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from src.embedding.embed_index import search_dense
 from src.retrieval.bm25_index import search_bm25
-from src.retrieval.hybrid import HybridResult, RRF_K
+from src.retrieval.hybrid import HybridResult, RRF_K, reciprocal_rank_fusion
+
+logger = logging.getLogger("rag.query_router")
+
 
 # Observabilidade (Passo 14)
 try:
@@ -162,76 +166,30 @@ def weighted_rrf(
     """
     Executa fusão RRF com pesos diferenciados por canal:
         score(chunk) = Σ_i  w_i / (k + rank_i(chunk))
+
+    Reutiliza internamente a implementação canônica de hybrid.py.
     """
-    w_dense = weights.get("dense", 1.0)
-    w_bm25 = weights.get("bm25", 1.0)
-    w_graph = weights.get("graph", 0.2)
+    ranked_lists: Dict[str, List[Dict[str, Any]]] = {
+        "dense": dense_hits or [],
+        "bm25": bm25_hits or [],
+    }
+    if graph_hits:
+        ranked_lists["graph"] = graph_hits
 
-    rrf_scores: Dict[str, float] = {}
-    dense_ranks: Dict[str, int] = {}
-    bm25_ranks: Dict[str, int] = {}
-    graph_ranks: Dict[str, int] = {}
-    chunk_data: Dict[str, Any] = {}
+    return reciprocal_rank_fusion(
+        ranked_lists=ranked_lists,
+        top_k=top_k,
+        k=k,
+        weights=weights,
+    )
 
-    for rank, h in enumerate(dense_hits, start=1):
-        cid = h.get("chunk_id") if isinstance(h, dict) else getattr(h, "chunk_id", None)
-        if not cid:
-            continue
-        dense_ranks[cid] = rank
-        rrf_scores[cid] = rrf_scores.get(cid, 0.0) + (w_dense / (k + rank))
-        chunk_data[cid] = h
-
-    for rank, h in enumerate(bm25_hits, start=1):
-        cid = h.get("chunk_id") if isinstance(h, dict) else getattr(h, "chunk_id", None)
-        if not cid:
-            continue
-        bm25_ranks[cid] = rank
-        rrf_scores[cid] = rrf_scores.get(cid, 0.0) + (w_bm25 / (k + rank))
-        if cid not in chunk_data:
-            chunk_data[cid] = h
-
-    if graph_hits and w_graph > 0:
-        for rank, h in enumerate(graph_hits, start=1):
-            cid = h.get("chunk_id") if isinstance(h, dict) else getattr(h, "chunk_id", None)
-            if not cid:
-                continue
-            graph_ranks[cid] = rank
-            rrf_scores[cid] = rrf_scores.get(cid, 0.0) + (w_graph / (k + rank))
-            if cid not in chunk_data:
-                chunk_data[cid] = h
-
-    sorted_cids = sorted(rrf_scores.keys(), key=lambda c: rrf_scores[c], reverse=True)
-
-    results: List[HybridResult] = []
-    for cid in sorted_cids[:top_k]:
-        ch = chunk_data[cid]
-
-        content = ch.get("content", "") if isinstance(ch, dict) else getattr(ch, "content", "")
-        source_uri = ch.get("source_uri") if isinstance(ch, dict) else getattr(ch, "source_uri", None)
-        section_title = ch.get("section_title") if isinstance(ch, dict) else getattr(ch, "section_title", None)
-        document_title = ch.get("document_title") if isinstance(ch, dict) else getattr(ch, "document_title", None)
-
-        results.append(
-            HybridResult(
-                chunk_id=cid,
-                content=content,
-                rrf_score=rrf_scores[cid],
-                dense_rank=dense_ranks.get(cid),
-                bm25_rank=bm25_ranks.get(cid),
-                graph_rank=graph_ranks.get(cid),
-                source_uri=source_uri,
-                section_title=section_title,
-                document_title=document_title,
-            )
-        )
-
-    return results
 
 
 def routed_hybrid_search(
     query: str,
     top_k: int = 5,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     boosts: Optional[Dict[QueryIntent, Dict[str, float]]] = None,
     candidate_pool_size: int = 20,
     use_graph: bool = True,
@@ -240,7 +198,7 @@ def routed_hybrid_search(
     Executa busca híbrida com Query Router:
     1. Classifica a intenção da query.
     2. Obtém pesos ajustados para os canais (routing suave com min_weight_floor).
-    3. Recupera candidatos do Qdrant, Postgres e opcionalmente Neo4j/Graph.
+    3. Recupera candidatos do Qdrant, Postgres e opcionalmente Neo4j/Graph (com pré-filtro de tenant e ACL).
     4. Funde com RRF ponderado.
     5. Retorna resultados, intenção detectada e pesos aplicados.
     """
@@ -248,15 +206,26 @@ def routed_hybrid_search(
     intent = classify_intent(query)
     weights = get_channel_weights(intent, boosts=boosts)
 
-    dense_hits = search_dense(query=query, top_k=candidate_pool_size, tenant_id=tenant_id)
-    bm25_hits = search_bm25(query=query, top_k=candidate_pool_size, tenant_id=tenant_id)
+    dense_hits = search_dense(
+        query=query,
+        top_k=candidate_pool_size,
+        tenant_id=tenant_id,
+        principals=principals,
+    )
+    bm25_hits = search_bm25(
+        query=query,
+        top_k=candidate_pool_size,
+        tenant_id=tenant_id,
+        principals=principals,
+    )
 
     graph_hits = []
     if use_graph:
         try:
             from src.retrieval.graph_search import search_graph
             graph_hits = search_graph(query=query, top_k=candidate_pool_size)
-        except Exception:
+        except Exception as e:
+            logger.warning("Busca em grafo falhou (%s); prosseguindo com dense + bm25", e)
             graph_hits = []
 
     fused = weighted_rrf(

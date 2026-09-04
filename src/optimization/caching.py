@@ -12,10 +12,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.config import settings
+
+logger = logging.getLogger("rag.caching")
+
 
 # ---------------------------------------------------------------------------
 # Fallback em Memória (LRU com TTL)
@@ -83,7 +87,8 @@ class CacheManager:
             # Teste de ping rápido
             client.ping()
             self.redis_client = client
-        except Exception:
+        except Exception as e:
+            logger.debug("Redis não disponível no init (%s); usando fallback in-memory", e)
             self.redis_client = None
 
     @property
@@ -114,27 +119,43 @@ class CacheManager:
         if self.redis_client:
             try:
                 self.redis_client.flushdb()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Falha ao limpar Redis (%s)", e)
 
     def _hash_key(self, prefix: str, key_data: str) -> str:
         """Gera chave consistente usando hash SHA-256."""
         h = hashlib.sha256(key_data.strip().lower().encode("utf-8")).hexdigest()[:32]
         return f"{prefix}:{h}"
 
+    def _response_key(
+        self,
+        query: str,
+        tenant_id: str = "",
+        principals: Optional[List[str]] = None,
+    ) -> str:
+        """Gera chave consistente para resposta isolada por tenant e ACL (principals)."""
+        principals_str = ",".join(sorted(principals)) if principals else ""
+        return self._hash_key("rag:resp", f"{tenant_id}:{principals_str}:{query}")
+
     # --- Cache de Respostas de Geração ---
 
-    def get_response(self, query: str, tenant_id: str = "") -> Optional[Dict[str, Any]]:
+    def get_response(
+        self,
+        query: str,
+        tenant_id: str = "",
+        principals: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, Any]]:
         if not settings.enable_cache:
             return None
 
-        cache_key = self._hash_key("rag:resp", f"{tenant_id}:{query}")
+        cache_key = self._response_key(query=query, tenant_id=tenant_id, principals=principals)
         raw = None
 
         if self.redis_client:
             try:
                 raw = self.redis_client.get(cache_key)
-            except Exception:
+            except Exception as e:
+                logger.warning("Falha na leitura do Redis (%s); tentando fallback in-memory", e)
                 raw = None
 
         if raw is None:
@@ -144,7 +165,8 @@ class CacheManager:
             self.hits += 1
             try:
                 return json.loads(raw)
-            except Exception:
+            except Exception as e:
+                logger.warning("Erro ao deserializar payload em cache (%s)", e)
                 return None
 
         self.misses += 1
@@ -155,20 +177,21 @@ class CacheManager:
         query: str,
         tenant_id: str,
         response_payload: Dict[str, Any],
+        principals: Optional[List[str]] = None,
         ttl_seconds: Optional[int] = None,
     ) -> None:
         if not settings.enable_cache:
             return
 
         ttl = ttl_seconds or settings.cache_response_ttl
-        cache_key = self._hash_key("rag:resp", f"{tenant_id}:{query}")
+        cache_key = self._response_key(query=query, tenant_id=tenant_id, principals=principals)
         serialized = json.dumps(response_payload, ensure_ascii=False)
 
         if self.redis_client:
             try:
                 self.redis_client.set(cache_key, serialized, ex=ttl)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Falha na escrita do Redis (%s); gravando apenas in-memory", e)
 
         self.in_memory.set(cache_key, serialized, ttl_seconds=ttl)
 

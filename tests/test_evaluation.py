@@ -15,6 +15,46 @@ sys.path.insert(0, ".")
 from src.evaluation.offline_eval import evaluate_recall_at_k, load_golden_dataset
 
 
+def test_golden_dataset_structure():
+    """Valida integridade e schema do golden dataset."""
+    dataset = load_golden_dataset()
+    assert len(dataset) > 0
+    for item in dataset:
+        assert "question" in item
+        assert "expected_chunk_ids" in item
+        assert isinstance(item["expected_chunk_ids"], list)
+
+
+def test_offline_eval_calculation(monkeypatch):
+    """Valida métricas Recall@K e MRR da função evaluate_recall_at_k."""
+    dataset = [
+        {"question": "Q1", "expected_chunk_ids": ["c1", "c2"]},
+        {"question": "Q2", "expected_chunk_ids": ["c3"]},
+        {"question": "Q3", "expected_chunk_ids": ["c99"]},
+    ]
+
+    # Simula retrieved chunks:
+    # Q1 -> acerto no rank 1 (MRR += 1.0)
+    # Q2 -> acerto no rank 2 (MRR += 0.5)
+    # Q3 -> erro (MRR += 0.0)
+    def fake_retrieve(query, top_k, mode, *args, **kwargs):
+        if query == "Q1":
+            return ["c1", "other"]
+        elif query == "Q2":
+            return ["other", "c3"]
+        return ["other1", "other2"]
+
+
+    monkeypatch.setattr("src.evaluation.offline_eval._retrieve", fake_retrieve)
+
+    metrics = evaluate_recall_at_k(dataset, k=2, mode="hybrid")
+    assert metrics["hits"] == 2
+    assert metrics["n_questions"] == 3
+    assert abs(metrics["recall_at_k"] - (2 / 3)) < 1e-3
+    assert abs(metrics["mrr"] - (1.5 / 3)) < 1e-3
+
+
+
 def main() -> None:
     print("Avaliacao offline (Passo 7) — Baseline Recall@K\n")
 

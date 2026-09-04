@@ -86,7 +86,79 @@ def evaluate_answer(result, case: dict) -> dict:
     }
 
 
+def test_evaluate_answer_heuristics():
+    """Valida funções de avaliação de keywords e citações."""
+    from src.retrieval.hybrid import HybridResult
+    from src.generation.answer import AnswerResult
+
+    case = {
+        "expected_keywords": ["retrieval", "geração"],
+        "expected_source": "01_intro.txt",
+    }
+    dummy_res = AnswerResult(
+        answer="O RAG combina retrieval com geração [Fonte 1].",
+        chunks_used=[
+            HybridResult(chunk_id="c1", content="texto", rrf_score=0.9, source_uri="data/01_intro.txt")
+        ],
+        model="simulado",
+    )
+    eval_out = evaluate_answer(dummy_res, case)
+    assert eval_out["keyword_rate"] == 1.0
+    assert eval_out["has_citation"] is True
+    assert eval_out["source_retrieved"] is True
+
+
+def test_generation_simulated_pipeline(monkeypatch):
+    """Valida execução da pipeline answer() em modo simulado com chunks."""
+    from src.retrieval.hybrid import HybridResult
+
+    fake_chunks = [
+        HybridResult(
+            chunk_id="chk-sim",
+            content="RAG é uma arquitetura que combina recuperação e geração de linguagem.",
+            rrf_score=0.95,
+            source_uri="01_introducao_rag.txt",
+        )
+    ]
+    monkeypatch.setattr("src.generation.answer.hybrid_search", lambda *args, **kwargs: fake_chunks)
+
+    res = answer("O que é RAG?", top_k=1, tenant_id=TENANT)
+    assert res is not None
+    assert len(res.chunks_used) == 1
+    assert "01_introducao_rag.txt" in res.source_uris
+    assert res.simulated is True
+    assert "MODO SIMULADO" in res.answer
+
+
+def test_generation_golden_cases(monkeypatch):
+    """Valida casos do golden dataset via pytest com mock retrieval para robustez em CI."""
+    from src.retrieval.hybrid import HybridResult
+
+    def fake_search(query, *args, **kwargs):
+        # Localiza o caso correspondente e retorna chunk com o source esperado
+        for c in TEST_CASES:
+            if c["question"] == query:
+                return [
+                    HybridResult(
+                        chunk_id=f"chk-{c['id']}",
+                        content=f"Informações sobre {query}: " + " ".join(c["expected_keywords"]),
+                        rrf_score=0.99,
+                        source_uri=c["expected_source"],
+                    )
+                ]
+        return []
+
+    monkeypatch.setattr("src.generation.answer.hybrid_search", fake_search)
+
+    for case in TEST_CASES:
+        res = answer(case["question"], top_k=1, tenant_id=TENANT)
+        eval_r = evaluate_answer(res, case)
+        assert eval_r["source_retrieved"] is True, f"Fonte não recuperada para {case['id']}"
+        assert eval_r["keyword_rate"] > 0, f"Nenhuma keyword encontrada para {case['id']}"
+
+
 def main() -> None:
+
     print("Testando Geracao RAG — Passo 8\n")
     print("=" * 70)
 

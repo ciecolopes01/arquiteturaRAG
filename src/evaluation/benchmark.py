@@ -15,13 +15,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
+
+logger = logging.getLogger("rag.benchmark")
+
 
 from src.config import settings
 from src.retrieval.hybrid import reciprocal_rank_fusion
@@ -108,19 +112,22 @@ def execute_pipeline(
     if "dense" in config.retrievers:
         try:
             ranked_channels["dense"] = search_dense(query, top_k=candidate_k, tenant_id=tenant_id)
-        except Exception:
+        except Exception as e:
+            logger.warning("Canal 'dense' falhou na query '%s' (%s)", query[:30], e)
             ranked_channels["dense"] = []
 
     if "bm25" in config.retrievers:
         try:
             ranked_channels["bm25"] = search_bm25(query, top_k=candidate_k, tenant_id=tenant_id)
-        except Exception:
+        except Exception as e:
+            logger.warning("Canal 'bm25' falhou na query '%s' (%s)", query[:30], e)
             ranked_channels["bm25"] = []
 
     if "graph" in config.retrievers:
         try:
             ranked_channels["graph"] = search_graph(query, top_k=candidate_k)
-        except Exception:
+        except Exception as e:
+            logger.warning("Canal 'graph' falhou na query '%s' (%s)", query[:30], e)
             ranked_channels["graph"] = []
 
     # Fusão
@@ -131,14 +138,16 @@ def execute_pipeline(
         weights=config.fusion_weights,
     )
 
+
     # Reranker opcional
     if config.reranker != "none" and fused_candidates:
         try:
             from src.retrieval.reranker import rerank
             reranked = rerank(query, fused_candidates, top_k=top_k)
             return [r.chunk_id for r in reranked]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Reranker falhou na query '%s' (%s); mantendo candidatos do RRF", query[:30], e)
+
 
     return [r.chunk_id for r in fused_candidates[:top_k]]
 

@@ -68,7 +68,30 @@ def test_get_channel_weights_respects_floor() -> None:
     assert w["bm25"] == 0.15
 
 
+def test_weighted_rrf_unification() -> None:
+    """Valida cálculo de fusão do weighted_rrf integrado ao reciprocal_rank_fusion."""
+    dense = [{"chunk_id": "c1", "content": "dense doc", "score": 0.9}]
+    bm25 = [{"chunk_id": "c2", "content": "bm25 doc", "score": 12.5}]
+    graph = [{"chunk_id": "c1", "content": "graph doc", "score": 1.0}]
+
+    weights = {"dense": 1.5, "bm25": 1.0, "graph": 0.5}
+    fused = weighted_rrf(
+        dense_hits=dense,
+        bm25_hits=bm25,
+        graph_hits=graph,
+        weights=weights,
+        top_k=2,
+    )
+    assert len(fused) == 2
+    # c1 tem votos no canal dense e no canal graph -> maior score RRF
+    assert fused[0].chunk_id == "c1"
+    assert fused[0].rrf_score > fused[1].rrf_score
+    assert fused[0].dense_rank == 1
+    assert fused[0].graph_rank == 1
+
+
 def test_routed_hybrid_search_end_to_end() -> None:
+
     """Executa busca roteada ponta a ponta e verifica retorno de intenção e resultados."""
     results, intent, weights = routed_hybrid_search(
         query="Em que página aparece o fluxo de indexação de imagens?",

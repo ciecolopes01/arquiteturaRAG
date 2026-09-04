@@ -17,11 +17,15 @@ Fluxo:
 
 from __future__ import annotations
 
+import logging
 import math
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger("rag.self_rag")
+
 
 from src.config import settings
 from src.generation.answer import AnswerResult, answer
@@ -131,13 +135,14 @@ def adaptive_answer(
     query: str,
     top_k: int = 5,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     confidence_threshold: float = CONFIDENCE_THRESHOLD,
     retry_threshold: float = RETRY_THRESHOLD,
     allow_retry: bool = True,
 ) -> SelfRAGResult:
     """
     Ponto de entrada do pipeline Self-RAG:
-    1. Retrieval híbrido roteado (top_k ampliado para reranking).
+    1. Retrieval híbrido roteado com filtro de tenant e ACL (top_k ampliado para reranking).
     2. Reranking com cross-encoder BGE.
     3. Avaliação de suficiência:
        - SUFFICIENT: gera resposta.
@@ -146,18 +151,20 @@ def adaptive_answer(
     """
     t0 = time.perf_counter()
 
-    # 1. Primeira rodada de retrieval (pool de candidatos para reranker)
+    # 1. Primeira rodada de retrieval (pool de candidatos para reranker com filtro de ACL)
     candidates, intent, _ = routed_hybrid_search(
         query=query,
         top_k=max(top_k * 3, 15),
         tenant_id=tenant_id,
+        principals=principals,
     )
 
     reranked = []
     if candidates:
         try:
             reranked = rerank(query, candidates, top_k=top_k)
-        except Exception:
+        except Exception as e:
+            logger.warning("Falha no reranker do Self-RAG (%s); usando fallback de candidatos brutos", e)
             reranked = candidates[:top_k]
 
     decision, confidence = evaluate_context_sufficiency(
@@ -177,11 +184,13 @@ def adaptive_answer(
             query=rewritten_q,
             top_k=max(top_k * 4, 20),
             tenant_id=tenant_id,
+            principals=principals,
         )
         if retry_candidates:
             try:
                 reranked_retry = rerank(query, retry_candidates, top_k=top_k)
-            except Exception:
+            except Exception as e:
+                logger.warning("Falha no reranker do Self-RAG na 2ª rodada (%s); usando fallback", e)
                 reranked_retry = retry_candidates[:top_k]
 
             decision_retry, conf_retry = evaluate_context_sufficiency(
@@ -217,7 +226,12 @@ def adaptive_answer(
         )
 
     # 4. Suficiente: Gera resposta através do Claude (answer) usando os chunks validados
-    ans_res = answer(query=query, top_k=top_k, tenant_id=tenant_id)
+    ans_res = answer(
+        query=query,
+        top_k=top_k,
+        tenant_id=tenant_id,
+        principals=principals,
+    )
     elapsed = (time.perf_counter() - t0) * 1000
 
     trace = get_current_trace()

@@ -57,21 +57,111 @@ def test_cache_manager_basic_operations():
     assert emb_hit == fake_vec
 
 
-def test_answer_stream_generator():
+def test_cache_acl_isolation():
+    """
+    Valida que o cache de respostas isola por ACL (principals) dentro do mesmo tenant.
+    Dois usuários com ACLs diferentes para a mesma query NÃO devem compartilhar cache.
+    """
+    cache.clear()
+    query = "Quais são os dados financeiros confidenciais?"
+    tenant = "tenant-corp"
+    user_a_principals = ["user:alice", "grupo:financeiro"]
+    user_b_principals = ["user:bob", "grupo:marketing"]
+
+    payload_a = {
+        "answer": "Dados financeiros confidenciais para Alice",
+        "model": "claude-test",
+        "source_uris": ["uri-fin"],
+        "chunks_used": [{"chunk_id": "c1", "content": "segredo", "rrf_score": 0.9}],
+    }
+
+    # Salva resposta para Alice
+    cache.set_response(
+        query=query,
+        tenant_id=tenant,
+        principals=user_a_principals,
+        response_payload=payload_a,
+    )
+
+    # Bob faz a mesma pergunta no mesmo tenant, mas com seus principals
+    cached_b = cache.get_response(query=query, tenant_id=tenant, principals=user_b_principals)
+    assert cached_b is None, "Bob não deve receber em cache a resposta gerada para a ACL de Alice!"
+
+    # Alice faz a pergunta novamente e obtém cache hit
+    cached_a = cache.get_response(query=query, tenant_id=tenant, principals=user_a_principals)
+    assert cached_a is not None
+    assert cached_a["answer"] == "Dados financeiros confidenciais para Alice"
+
+
+def test_cache_chunks_used_restoration(monkeypatch):
+    """
+    Valida que ao obter resposta do cache via answer(), chunks_used é devidamente restaurado.
+    """
+    from src.generation.answer import HybridResult
+    cache.clear()
+
+    fake_chunks = [
+        HybridResult(
+            chunk_id="chk-123",
+            content="Conteúdo do chunk relevante",
+            rrf_score=0.88,
+            source_uri="doc.pdf",
+            document_title="Documento de Teste",
+        )
+    ]
+    monkeypatch.setattr("src.generation.answer.hybrid_search", lambda *args, **kwargs: fake_chunks)
+
+    # Chamada 1: Popula o cache
+    res1 = answer(query="Pergunta com fontes", tenant_id="tenant-1", principals=["user:tester"])
+    assert len(res1.chunks_used) == 1
+    assert res1.chunks_used[0].chunk_id == "chk-123"
+
+    # Chamada 2: Cache Hit
+    res2 = answer(query="Pergunta com fontes", tenant_id="tenant-1", principals=["user:tester"])
+    assert "cached" in res2.model
+    assert len(res2.chunks_used) == 1
+    assert res2.chunks_used[0].chunk_id == "chk-123"
+    assert res2.chunks_used[0].content == "Conteúdo do chunk relevante"
+    assert res2.source_uris == ["doc.pdf"]
+
+
+def test_answer_stream_generator(monkeypatch):
     """Valida que o generator de streaming produz tokens progressivos."""
+    from src.generation.answer import HybridResult
+    fake_chunks = [
+        HybridResult(
+            chunk_id="chk-stream",
+            content="Conteúdo explicativo sobre RAG",
+            rrf_score=0.9,
+            source_uri="intro.txt",
+        )
+    ]
+    monkeypatch.setattr("src.generation.answer.hybrid_search", lambda *args, **kwargs: fake_chunks)
+
     tokens = list(answer_stream("O que é RAG?", top_k=2, tenant_id="tenant-test"))
     assert len(tokens) > 0
     full_output = "".join(tokens)
     assert len(full_output) > 0
 
 
-def test_latency_comparison_and_cache_hit_rate():
+def test_latency_comparison_and_cache_hit_rate(monkeypatch):
     """
     Critério de "pronto" do Passo 32:
     Executa conjunto de perguntas em 2 rodadas sucessivas.
     Mede latência média e P95 antes (rodada 1) vs depois (rodada 2 com cache hit).
     Registra tabela comparativa e valida hit rate de 100% na 2ª rodada.
     """
+    from src.generation.answer import HybridResult
+    fake_chunks = [
+        HybridResult(
+            chunk_id="chk-lat",
+            content="Conteúdo para teste de latência e cache",
+            rrf_score=0.95,
+            source_uri="latency.txt",
+        )
+    ]
+    monkeypatch.setattr("src.generation.answer.hybrid_search", lambda *args, **kwargs: fake_chunks)
+
     test_queries = [
         "O que é RAG e quais são seus componentes fundamentais?",
         "Qual a finalidade do Reciprocal Rank Fusion na busca híbrida?",
@@ -137,3 +227,4 @@ def test_settings_latency_parameters():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

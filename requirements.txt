@@ -5,6 +5,14 @@ pydantic-settings>=2.5.0
 qdrant-client>=1.11.0
 psycopg2-binary>=2.9.0
 minio>=7.2.0
+redis>=5.0.0
+neo4j>=5.0.0
+numpy>=1.24.0
+PyYAML>=6.0.0
+
+# Passo 8 — LLM Claude (geração)
+anthropic>=0.30.0
+
 
 # Passo 2 — parsers HTML
 beautifulsoup4>=4.12.0
