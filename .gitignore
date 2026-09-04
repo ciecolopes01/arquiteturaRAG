@@ -7,3 +7,11 @@ venv/
 *.egg-info/
 data/seed_corpus/*
 !data/seed_corpus/.gitkeep
+logs/*
+!logs/.gitkeep
+benchmarks/results/*
+!benchmarks/results/.gitkeep
+*.bak
+.coverage
+htmlcov/
+

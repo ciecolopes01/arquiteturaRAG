@@ -44,6 +44,7 @@ except ImportError:
 
 import psycopg2
 import psycopg2.extras
+from psycopg2 import errors as pg_errors
 
 from src.chunking.recursive import Chunk
 from src.config import settings
@@ -275,7 +276,7 @@ def search_bm25(
         try:
             cur.execute(sql, params)
             rows = cur.fetchall()
-        except psycopg2.Error as e:
+        except pg_errors.SyntaxError as e:
             conn.rollback()
             # Fallback: plainto_tsquery sempre funciona; to_tsquery pode falhar
             # com termos que contêm caracteres especiais
@@ -284,6 +285,9 @@ def search_bm25(
                     query, top_k=top_k, tenant_id=tenant_id,
                     principals=principals, use_plain=True,
                 )
+            raise e
+        except psycopg2.Error as e:
+            conn.rollback()
             raise e
     _bm25_ms = (time.time() - _t0) * 1000
     trace = get_current_trace()
@@ -314,13 +318,15 @@ def search_bm25(
     max_score = max(float(r["score"]) for r in rows) or 1.0
     return [
         {
-            "chunk_id":      r["chunk_id"],
-            "score":         round(float(r["score"]) / max_score, 4),
-            "raw_score":     round(float(r["score"]), 6),
-            "content":       r["content"],
-            "source_uri":    r["source_uri"],
-            "document_title":r["document_title"],
-            "section_title": r["section_title"],
+            "chunk_id":        r["chunk_id"],
+            "score":           round(float(r["score"]) / max_score, 4),
+            "raw_score":       round(float(r["score"]), 6),
+            "content":         r["content"],
+            "source_uri":      r["source_uri"],
+            "document_title":  r["document_title"],
+            "section_title":   r["section_title"],
+            "parent_chunk_id": r.get("parent_chunk_id"),
+            "parent_content":  r.get("parent_content"),
         }
         for r in rows
     ]

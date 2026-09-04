@@ -261,6 +261,46 @@ def run_benchmark_suite(
     return suite_results
 
 
+def _derive_conclusions(results: List[BenchmarkResult]) -> List[str]:
+    """Gera conclusões dinâmicas baseadas nos resultados observados."""
+    if not results:
+        return ["- Nenhuma configuração foi avaliada."]
+
+    lines = []
+    # Verifica se houve falha geral de retrieval (ex: infra offline)
+    max_recall = max(r.recall_at_5 for r in results)
+    if max_recall == 0.0:
+        lines.append(
+            "> [!WARNING]\n"
+            "> **Atenção:** Todas as configurações obtiveram Recall@5 = 0.0. "
+            "Isso geralmente indica que os serviços de backend (Qdrant, Postgres, Neo4j) estavam indisponíveis ou não indexados durante o benchmark."
+        )
+
+    # Identifica o melhor pipeline global
+    best_config = max(results, key=lambda x: (x.recall_at_5, x.mrr))
+    lines.append(
+        f"- **Melhor Configuração Global:** `{best_config.config_name}` com Recall@5 de **{best_config.recall_at_5:.4f}** e MRR de **{best_config.mrr:.4f}**."
+    )
+
+    # Identifica pipeline mais rápido
+    fastest_config = min(results, key=lambda x: x.avg_latency_ms)
+    lines.append(
+        f"- **Menor Latência Média:** `{fastest_config.config_name}` ({fastest_config.avg_latency_ms:.1f}ms)."
+    )
+
+    # Comparação por categoria
+    all_categories = sorted({cat for r in results for cat in r.category_recalls.keys()})
+    for cat in all_categories:
+        best_in_cat = max(results, key=lambda x: x.category_recalls.get(cat, 0.0))
+        cat_rec = best_in_cat.category_recalls.get(cat, 0.0)
+        if cat_rec > 0:
+            lines.append(
+                f"- **Categoria '{cat}':** A configuração `{best_in_cat.config_name}` obteve o maior Recall ({cat_rec:.4f})."
+            )
+
+    return lines
+
+
 def generate_reports(results: List[BenchmarkResult], output_dir: Path) -> Tuple[Path, Path]:
     """Gera arquivos de relatório comparativo detalhado em Markdown e JSON."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -306,13 +346,11 @@ def generate_reports(results: List[BenchmarkResult], output_dir: Path) -> Tuple[
         row_vals = [f"{r.category_recalls.get(c, 0.0):.2f}" for c in categories]
         md_lines.append(f"| **{r.config_name}** | " + " | ".join(row_vals) + " |")
 
+    conclusions = _derive_conclusions(results)
     md_lines.extend([
         "",
         "## Conclusão e Diretrizes de Produção",
-        "- **Perguntas Conceituais/Semânticas:** Dense BGE-M3 e Hybrid RRF apresentam melhor desempenho.",
-        "- **Perguntas Tabulares/Fiscais/Hardware:** BM25 lexical e filtros prévios garantem precisão exata de códigos e siglas.",
-        "- **Perguntas Relacionais:** A introdução do canal de Grafo (Neo4j / Graph RAG) eleva o Recall@5 substancialmente ao explorar vizinhança multi-hop.",
-        "- **Reranking:** O modelo cross-encoder eleva o MRR consistente em todas as classes de perguntas.",
+        *conclusions,
     ])
 
     with open(md_path, "w", encoding="utf-8") as f:

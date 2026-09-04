@@ -223,10 +223,19 @@ def routed_hybrid_search(
     if use_graph:
         try:
             from src.retrieval.graph_search import search_graph
-            graph_hits = search_graph(query=query, top_k=candidate_pool_size)
+            graph_hits = search_graph(
+                query=query,
+                top_k=candidate_pool_size,
+                tenant_id=tenant_id,
+                principals=principals,
+            )
         except Exception as e:
             logger.warning("Busca em grafo falhou (%s); prosseguindo com dense + bm25", e)
             graph_hits = []
+            trace = get_current_trace()
+            if trace:
+                trace.metadata["graph_channel_degraded"] = True
+
 
     fused = weighted_rrf(
         dense_hits=dense_hits,

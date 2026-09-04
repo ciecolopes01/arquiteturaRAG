@@ -409,6 +409,7 @@ def answer(
     bm25_candidates: int = 20,
     expand_parents: bool = True,
     max_output_tokens: int = MAX_OUTPUT_TOKENS,
+    prefetched_chunks: Optional[List[HybridResult]] = None,
 ) -> AnswerResult:
     """
     Responde uma query fazendo retrieval híbrido e geração com Claude.
@@ -428,6 +429,7 @@ def answer(
     - bm25_candidates   : candidatos do canal BM25 antes do RRF.
     - expand_parents    : True expande chunks filhos para o chunk pai correspondente (Passo 17).
     - max_output_tokens : teto máximo de tokens de saída para o LLM.
+    - prefetched_chunks : se fornecido, usa esses chunks diretamente e ignora hybrid_search.
 
     Retorna AnswerResult com resposta, chunks, tokens e latência.
     """
@@ -453,6 +455,7 @@ def answer(
             bm25_candidates=bm25_candidates,
             expand_parents=expand_parents,
             max_output_tokens=max_output_tokens,
+            prefetched_chunks=prefetched_chunks,
         )
     finally:
         if _auto_trace_ctx is not None:
@@ -472,6 +475,7 @@ def _answer_impl(
     bm25_candidates: int = 20,
     expand_parents: bool = True,
     max_output_tokens: int = MAX_OUTPUT_TOKENS,
+    prefetched_chunks: Optional[List[HybridResult]] = None,
 ) -> AnswerResult:
     # --- 0. Cache de Resposta (Passo 32, isolado por tenant e ACL) ---
     try:
@@ -492,18 +496,23 @@ def _answer_impl(
     except Exception as e:
         logger.debug("Falha na consulta ao cache: %s", e)
 
-    # --- 1. Retrieval híbrido ---
+    # --- 1. Retrieval híbrido ou chunks pré-computados (Self-RAG) ---
     t_retrieval = time.time()
-    chunks = hybrid_search(
-        query,
-        top_k=top_k,
-        tenant_id=tenant_id,
-        principals=principals,
-        dense_candidates=dense_candidates,
-        bm25_candidates=bm25_candidates,
-    )
-    retrieval_ms = (time.time() - t_retrieval) * 1000
-    print(f"[answer] Retrieval: {len(chunks)} chunks em {retrieval_ms:.0f}ms")
+    if prefetched_chunks is not None:
+        chunks = prefetched_chunks
+        retrieval_ms = 0.0
+        print(f"[answer] Usando {len(chunks)} chunks pré-computados (Self-RAG)")
+    else:
+        chunks = hybrid_search(
+            query,
+            top_k=top_k,
+            tenant_id=tenant_id,
+            principals=principals,
+            dense_candidates=dense_candidates,
+            bm25_candidates=bm25_candidates,
+        )
+        retrieval_ms = (time.time() - t_retrieval) * 1000
+        print(f"[answer] Retrieval: {len(chunks)} chunks em {retrieval_ms:.0f}ms")
 
     if not chunks:
         return AnswerResult(
@@ -562,11 +571,12 @@ def answer_stream(
     principals: Optional[List[str]] = None,
     model: str = DEFAULT_MODEL,
     expand_parents: bool = True,
+    prefetched_chunks: Optional[List[HybridResult]] = None,
 ) -> Iterator[str]:
     """
     Generator para streaming token-a-token da resposta final.
-    Executa o retrieval híbrido com pré-filtro de tenant e ACL (principals)
-    e transmite os tokens progressivamente conforme são gerados pelo LLM.
+    Executa retrieval com pré-filtro de tenant e ACL (principals),
+    grava no cache ao término da transmissão e registra telemetria.
     """
     # 0. Cache check
     try:
@@ -580,27 +590,79 @@ def answer_stream(
     except Exception as e:
         logger.debug("Falha na consulta ao cache em answer_stream: %s", e)
 
-    # 1. Retrieval
-    chunks = hybrid_search(
-        query,
-        top_k=top_k,
-        tenant_id=tenant_id,
-        principals=principals,
-    )
+    # Inicia trace se observabilidade estiver disponível
+    _active_trace = get_current_trace()
+    _auto_trace_ctx = None
+    if _active_trace is None and _OBS_AVAILABLE:
+        _auto_trace_ctx = pipeline_trace(query, log=True)
+        _active_trace = _auto_trace_ctx.__enter__()
+
+    # 1. Retrieval ou prefetched chunks
+    if prefetched_chunks is not None:
+        chunks = prefetched_chunks
+    else:
+        chunks = hybrid_search(
+            query,
+            top_k=top_k,
+            tenant_id=tenant_id,
+            principals=principals,
+        )
+
     if not chunks:
         yield "Não encontrei documentos relevantes para essa pergunta."
+        if _auto_trace_ctx is not None:
+            _auto_trace_ctx.__exit__(None, None, None)
         return
 
     if expand_parents and chunks:
         chunks = expand_parent_context(chunks)
 
-    # 2. Streaming LLM
-    if not settings.anthropic_api_key:
-        sim = _simulated_answer(query, chunks)
-        words = sim.answer.split(" ")
-        for i, w in enumerate(words):
-            yield w + (" " if i < len(words) - 1 else "")
-    else:
-        yield from _stream_claude(query, chunks, model=model)
+    # 2. Streaming e acumulação para cache/telemetria
+    parts: List[str] = []
+    t0 = time.time()
+    try:
+        if not settings.anthropic_api_key:
+            sim = _simulated_answer(query, chunks)
+            words = sim.answer.split(" ")
+            for i, w in enumerate(words):
+                token = w + (" " if i < len(words) - 1 else "")
+                parts.append(token)
+                yield token
+        else:
+            for token in _stream_claude(query, chunks, model=model):
+                parts.append(token)
+                yield token
+    finally:
+        full_answer = "".join(parts)
+        if full_answer:
+            latency_ms = (time.time() - t0) * 1000
+            in_tokens = sum(len(c.content.split()) for c in chunks)
+            out_tokens = max(1, len(full_answer.split()))
+            record_generation_cost(
+                model=model,
+                input_tokens=in_tokens,
+                output_tokens=out_tokens,
+                latency_ms=latency_ms,
+            )
+            try:
+                from src.optimization.caching import cache
+                cache.set_response(
+                    query=query,
+                    tenant_id=tenant_id or "",
+                    principals=principals,
+                    response_payload={
+                        "answer": full_answer,
+                        "model": model,
+                        "simulated": not bool(settings.anthropic_api_key),
+                        "source_uris": list({c.source_uri for c in chunks if c.source_uri}),
+                        "chunks_used": [_serialize_chunk(c) for c in chunks],
+                    },
+                )
+            except Exception as e:
+                logger.debug("Falha na gravação do cache em answer_stream: %s", e)
+
+        if _auto_trace_ctx is not None:
+            _auto_trace_ctx.__exit__(None, None, None)
+
 
 

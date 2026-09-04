@@ -92,6 +92,8 @@ class RerankResult:
     section_title: str = ""
     document_title: str = ""
     rrf_score: float = 0.0    # score RRF original, para comparação
+    parent_chunk_id: Optional[str] = None
+    parent_content: Optional[str] = None
 
     @property
     def rank_change(self) -> int:
@@ -158,12 +160,11 @@ def rerank(
         reverse=True,
     )[:top_k]
 
+    original_ranks = {c.chunk_id: idx for idx, c in enumerate(chunks, 1)}
+
     results = []
     for new_rank, (chunk, score) in enumerate(scored, 1):
-        # Calcula o rank original (posição na lista de entrada, 1-indexed)
-        original_rank = next(
-            i + 1 for i, c in enumerate(chunks) if c.chunk_id == chunk.chunk_id
-        )
+        original_rank = original_ranks.get(chunk.chunk_id, new_rank)
         results.append(
             RerankResult(
                 chunk_id=chunk.chunk_id,
@@ -175,6 +176,8 @@ def rerank(
                 section_title=chunk.section_title,
                 document_title=chunk.document_title,
                 rrf_score=chunk.rrf_score,
+                parent_chunk_id=getattr(chunk, "parent_chunk_id", None),
+                parent_content=getattr(chunk, "parent_content", None),
             )
         )
 

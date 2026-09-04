@@ -70,7 +70,8 @@ def _retrieve(
     query: str,
     top_k: int,
     mode: str,
-    tenant_id: Optional[str],
+    tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     rerank_candidates: int = 20,
 ) -> List[str]:
     """
@@ -79,17 +80,17 @@ def _retrieve(
     """
     if mode == "hybrid":
         from src.retrieval.hybrid import hybrid_search
-        results = hybrid_search(query, top_k=top_k, tenant_id=tenant_id)
+        results = hybrid_search(query, top_k=top_k, tenant_id=tenant_id, principals=principals)
         return [r.chunk_id for r in results]
 
     elif mode == "dense":
         from src.embedding.embed_index import search_dense
-        results = search_dense(query, top_k=top_k, tenant_id=tenant_id)
+        results = search_dense(query, top_k=top_k, tenant_id=tenant_id, principals=principals)
         return [r["chunk_id"] for r in results]
 
     elif mode == "bm25":
         from src.retrieval.bm25_index import search_bm25
-        results = search_bm25(query, top_k=top_k, tenant_id=tenant_id)
+        results = search_bm25(query, top_k=top_k, tenant_id=tenant_id, principals=principals)
         return [r["chunk_id"] for r in results]
 
     elif mode == "rerank":
@@ -99,6 +100,7 @@ def _retrieve(
             query,
             top_k=rerank_candidates,
             tenant_id=tenant_id,
+            principals=principals,
             dense_candidates=rerank_candidates,
             bm25_candidates=rerank_candidates,
         )
@@ -136,6 +138,7 @@ def evaluate_recall_at_k(
     k: int = 5,
     mode: str = "hybrid",
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     verbose: bool = True,
     rerank_candidates: int = 20,
 ) -> Dict[str, float]:
@@ -147,6 +150,7 @@ def evaluate_recall_at_k(
     - k         : tamanho do top-K para avaliação.
     - mode      : "hybrid" | "dense" | "bm25" | "rerank".
     - tenant_id : filtro de tenant aplicado em todos os retrievals.
+    - principals: lista de identificadores de acesso do usuário.
     - verbose   : imprime resultado por pergunta se True.
     - rerank_candidates : nº de candidatos do hybrid_search antes do cross-encoder (modo "rerank").
 
@@ -175,7 +179,7 @@ def evaluate_recall_at_k(
         expected = entry["expected_chunk_ids"]
 
         retrieved = _retrieve(
-            question, top_k=k, mode=mode, tenant_id=tenant_id,
+            question, top_k=k, mode=mode, tenant_id=tenant_id, principals=principals,
             rerank_candidates=rerank_candidates,
         )
 

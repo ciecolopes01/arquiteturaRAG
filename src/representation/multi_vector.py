@@ -27,6 +27,7 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    MatchAny,
     MatchValue,
     PointStruct,
     VectorParams,
@@ -262,6 +263,14 @@ def index_multi_vector(
 
     points = []
     for r, vec in zip(representations, embeddings):
+        acl_principals = []
+        if isinstance(r.acl, list):
+            for e in r.acl:
+                if isinstance(e, dict) and e.get("principal"):
+                    acl_principals.append(e["principal"])
+                elif isinstance(e, str):
+                    acl_principals.append(e)
+
         payload = {
             "representation_id": r.id,
             "chunk_id": r.chunk_id,
@@ -270,6 +279,7 @@ def index_multi_vector(
             "text": r.text,
             "tenant_id": r.tenant_id or "",
             "acl": r.acl,
+            "acl_principals": acl_principals,
             **r.metadata,
         }
         points.append(
@@ -301,6 +311,7 @@ def search_multi_vector(
     query: str,
     top_k: int = 5,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     collection_name: str = MULTI_VECTOR_COLLECTION,
     fetch_multiplier: int = 4,
 ) -> List[Dict[str, Any]]:
@@ -317,11 +328,16 @@ def search_multi_vector(
 
     q_vec = embed_query(query)
 
-    query_filter = None
+    conditions = []
     if tenant_id:
-        query_filter = Filter(
-            must=[FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))]
+        conditions.append(
+            FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))
         )
+    if principals:
+        conditions.append(
+            FieldCondition(key="acl_principals", match=MatchAny(any=principals))
+        )
+    query_filter = Filter(must=conditions) if conditions else None
 
     # Busca pool ampliado para acomodar representações múltiplas
     limit = max(top_k * fetch_multiplier, 20)
@@ -380,6 +396,7 @@ def multi_vector_hybrid_search(
     query: str,
     top_k: int = 5,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     collection_name: str = MULTI_VECTOR_COLLECTION,
 ) -> List[HybridResult]:
     """
@@ -392,10 +409,11 @@ def multi_vector_hybrid_search(
         query=query,
         top_k=top_k * 2,
         tenant_id=tenant_id,
+        principals=principals,
         collection_name=collection_name,
     )
 
-    bm25_hits = search_bm25(query=query, top_k=top_k * 2, tenant_id=tenant_id)
+    bm25_hits = search_bm25(query=query, top_k=top_k * 2, tenant_id=tenant_id, principals=principals)
 
     rrf_scores: Dict[str, float] = {}
     dense_ranks: Dict[str, int] = {}

@@ -231,6 +231,7 @@ def adaptive_answer(
         top_k=top_k,
         tenant_id=tenant_id,
         principals=principals,
+        prefetched_chunks=reranked,
     )
     elapsed = (time.perf_counter() - t0) * 1000
 

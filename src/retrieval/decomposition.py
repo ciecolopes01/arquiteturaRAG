@@ -166,6 +166,7 @@ def decomposed_search(
     query: str,
     top_k: int = 5,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     use_llm: bool = True,
     use_router: bool = True,
 ) -> Tuple[List[HybridResult], List[str]]:
@@ -181,9 +182,9 @@ def decomposed_search(
     subquery_results: List[List[HybridResult]] = []
     for sq in subqueries:
         if use_router:
-            res, _, _ = routed_hybrid_search(sq, top_k=top_k * 2, tenant_id=tenant_id)
+            res, _, _ = routed_hybrid_search(sq, top_k=top_k * 2, tenant_id=tenant_id, principals=principals)
         else:
-            res = hybrid_search(sq, top_k=top_k * 2, tenant_id=tenant_id)
+            res = hybrid_search(sq, top_k=top_k * 2, tenant_id=tenant_id, principals=principals)
         subquery_results.append(res)
 
     fused = multi_query_fusion(subquery_results, top_k=top_k)

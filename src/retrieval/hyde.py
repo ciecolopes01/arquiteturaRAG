@@ -77,6 +77,7 @@ def hyde_search(
     query: str,
     top_k: int = 5,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     use_llm: bool = True,
 ) -> Tuple[List[Dict[str, Any]], str]:
     """
@@ -84,7 +85,7 @@ def hyde_search(
     Retorna a lista de candidatos e o texto hipotético gerado.
     """
     hypo_doc = generate_hypothetical_document(query, use_llm=use_llm)
-    hits = search_dense(query=hypo_doc, top_k=top_k, tenant_id=tenant_id)
+    hits = search_dense(query=hypo_doc, top_k=top_k, tenant_id=tenant_id, principals=principals)
     return hits, hypo_doc
 
 
@@ -92,6 +93,7 @@ def hyde_hybrid_search(
     query: str,
     top_k: int = 5,
     tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
     use_llm: bool = True,
     w_dense: float = 1.0,
     w_bm25: float = 1.0,
@@ -108,9 +110,15 @@ def hyde_hybrid_search(
     """
     t0 = time.perf_counter()
 
-    dense_hits = search_dense(query=query, top_k=top_k * 3, tenant_id=tenant_id)
-    bm25_hits = search_bm25(query=query, top_k=top_k * 3, tenant_id=tenant_id)
-    hyde_hits, hypo_doc = hyde_search(query=query, top_k=top_k * 3, tenant_id=tenant_id, use_llm=use_llm)
+    dense_hits = search_dense(query=query, top_k=top_k * 3, tenant_id=tenant_id, principals=principals)
+    bm25_hits = search_bm25(query=query, top_k=top_k * 3, tenant_id=tenant_id, principals=principals)
+    hyde_hits, hypo_doc = hyde_search(
+        query=query,
+        top_k=top_k * 3,
+        tenant_id=tenant_id,
+        principals=principals,
+        use_llm=use_llm,
+    )
 
     rrf_scores: Dict[str, float] = {}
     dense_ranks: Dict[str, int] = {}

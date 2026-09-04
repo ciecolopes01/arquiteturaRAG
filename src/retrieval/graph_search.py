@@ -16,6 +16,7 @@ Suporta:
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -24,6 +25,9 @@ import networkx as nx
 
 from src.chunking.recursive import Chunk
 from src.config import settings
+
+logger = logging.getLogger("rag.graph_search")
+
 
 # ---------------------------------------------------------------------------
 # Schemas de Grafo
@@ -159,6 +163,7 @@ class KnowledgeGraphIndex:
     def __init__(self):
         self.graph = nx.MultiDiGraph()
         self.chunk_store: Dict[str, str] = {}         # chunk_id -> content
+        self.chunk_metadata: Dict[str, Dict[str, Any]] = {} # chunk_id -> {tenant_id, acl_principals, ...}
         self.entity_to_chunks: Dict[str, Set[str]] = {} # entity_name -> {chunk_ids}
         self.neo4j_driver = None
         self._init_neo4j()
@@ -176,21 +181,22 @@ class KnowledgeGraphIndex:
             # Teste de conexão rápido
             driver.verify_connectivity()
             self.neo4j_driver = driver
-        except Exception:
-            # Continua em modo local (NetworkX)
+        except Exception as e:
+            logger.debug("Neo4j indisponível (%s); operando com NetworkX em memória", e)
             self.neo4j_driver = None
 
     def clear(self):
         """Limpa o grafo."""
         self.graph.clear()
         self.chunk_store.clear()
+        self.chunk_metadata.clear()
         self.entity_to_chunks.clear()
         if self.neo4j_driver:
             try:
                 with self.neo4j_driver.session() as session:
                     session.run("MATCH (n) DETACH DELETE n")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Falha ao limpar Neo4j: %s", e)
 
     def add_entity(self, entity: Entity):
         """Adiciona nó de entidade ao grafo."""
@@ -198,6 +204,7 @@ class KnowledgeGraphIndex:
             entity.name,
             entity_type=entity.entity_type,
             chunk_id=entity.chunk_id,
+            **entity.metadata,
         )
         if entity.name not in self.entity_to_chunks:
             self.entity_to_chunks[entity.name] = set()
@@ -209,16 +216,17 @@ class KnowledgeGraphIndex:
                     session.run(
                         """
                         MERGE (e:Entity {name: $name})
-                        ON CREATE SET e.type = $type
+                        ON CREATE SET e.type = $entity_type, e.chunk_id = $chunk_id
                         """,
                         name=entity.name,
-                        type=entity.entity_type,
+                        entity_type=entity.entity_type,
+                        chunk_id=entity.chunk_id,
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Falha ao gravar entidade no Neo4j: %s", e)
 
     def add_relation(self, rel: Relation):
-        """Adiciona aresta relacional entre entidades."""
+        """Adiciona aresta de relação ao grafo."""
         self.graph.add_edge(
             rel.source,
             rel.target,
@@ -240,26 +248,42 @@ class KnowledgeGraphIndex:
                         rel_type=rel.relation_type,
                         chunk_id=rel.chunk_id,
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Falha ao gravar relação no Neo4j: %s", e)
 
     def index_chunks(self, chunks: List[Chunk]):
         """Indexa uma coleção de chunks no grafo de conhecimento."""
         for c in chunks:
             self.chunk_store[c.chunk_id] = c.content
+            self.chunk_metadata[c.chunk_id] = {
+                "tenant_id": c.tenant_id or "",
+                "acl_principals": [e.get("principal") for e in c.acl if e.get("principal")],
+                "source_uri": c.metadata.get("source_uri", ""),
+                "document_title": c.metadata.get("document_title", ""),
+                "section_title": c.metadata.get("section_title", ""),
+                "parent_chunk_id": c.parent_chunk_id or c.metadata.get("parent_chunk_id"),
+                "parent_content": c.metadata.get("parent_content"),
+            }
             ents, rels = extract_entities_and_relations(c.content, c.chunk_id)
             for e in ents:
                 self.add_entity(e)
             for r in rels:
                 self.add_relation(r)
 
-    def search_graph(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def search_graph(
+        self,
+        query: str,
+        top_k: int = 5,
+        tenant_id: Optional[str] = None,
+        principals: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Executa Graph Search para a consulta:
         1. Identifica entidades presentes na query.
         2. Percorre a vizinhança de 1 e 2 saltos no grafo.
         3. Mapeia as entidades encontradas de volta para os chunks de origem.
-        4. Pontua chunks com base em centralidade e proximidade relacional.
+        4. Aplica pré-filtro de tenant e ACL (principals).
+        5. Pontua chunks com base em centralidade e proximidade relacional.
         """
         query_entities = extract_entities_from_text(query)
         if not query_entities:
@@ -279,14 +303,24 @@ class KnowledgeGraphIndex:
                 chunk_scores[cid] = chunk_scores.get(cid, 0.0) + 1.0
 
             # 2. Vizinhos diretos (1 salto - score 0.6)
-            neighbors_1 = list(self.graph.neighbors(q_ent)) + list(self.graph.predecessors(q_ent))
+            try:
+                neighbors_1 = list(self.graph.neighbors(q_ent)) + list(self.graph.predecessors(q_ent))
+            except Exception as e:
+                logger.debug("Falha ao obter vizinhos de 1 salto para %s: %s", q_ent, e)
+                neighbors_1 = []
+
             for n1 in set(neighbors_1):
                 matched_subgraph_entities.add(n1)
                 for cid in self.entity_to_chunks.get(n1, set()):
                     chunk_scores[cid] = chunk_scores.get(cid, 0.0) + 0.6
 
                 # 3. Vizinhos de 2 saltos (score 0.3)
-                neighbors_2 = list(self.graph.neighbors(n1))
+                try:
+                    neighbors_2 = list(self.graph.neighbors(n1))
+                except Exception as e:
+                    logger.debug("Falha ao obter vizinhos de 2 saltos para %s: %s", n1, e)
+                    neighbors_2 = []
+
                 for n2 in set(neighbors_2):
                     if n2 != q_ent and n2 not in neighbors_1:
                         matched_subgraph_entities.add(n2)
@@ -297,10 +331,23 @@ class KnowledgeGraphIndex:
             return []
 
         # Ordena chunks por pontuação decrescente
-        sorted_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        sorted_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
 
         results = []
         for cid, score in sorted_chunks:
+            meta = self.chunk_metadata.get(cid, {})
+            c_tenant = meta.get("tenant_id")
+            c_principals = meta.get("acl_principals", [])
+
+            # Filtro de tenant se especificado
+            if tenant_id is not None and c_tenant and c_tenant != tenant_id:
+                continue
+
+            # Filtro de ACL se especificado
+            if principals is not None and c_principals:
+                if not any(p in c_principals for p in principals):
+                    continue
+
             content = self.chunk_store.get(cid, "")
             results.append(
                 {
@@ -308,9 +355,16 @@ class KnowledgeGraphIndex:
                     "content": content,
                     "score": round(score, 4),
                     "source": "graph",
+                    "source_uri": meta.get("source_uri"),
+                    "document_title": meta.get("document_title"),
+                    "section_title": meta.get("section_title"),
+                    "parent_chunk_id": meta.get("parent_chunk_id"),
+                    "parent_content": meta.get("parent_content"),
                     "matched_entities": list(matched_subgraph_entities),
                 }
             )
+            if len(results) >= top_k:
+                break
 
         return results
 
@@ -326,7 +380,17 @@ def get_graph_index() -> KnowledgeGraphIndex:
     return _GRAPH_INDEX
 
 
-def search_graph(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-    """Função de entrada canônica para busca relacional no grafo."""
+def search_graph(
+    query: str,
+    top_k: int = 5,
+    tenant_id: Optional[str] = None,
+    principals: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """Função de entrada canônica para busca relacional no grafo com suporte a tenant e ACL."""
     idx = get_graph_index()
-    return idx.search_graph(query, top_k=top_k)
+    return idx.search_graph(
+        query=query,
+        top_k=top_k,
+        tenant_id=tenant_id,
+        principals=principals,
+    )

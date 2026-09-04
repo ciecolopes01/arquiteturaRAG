@@ -18,12 +18,46 @@ permissão nunca deve ver um chunk, mesmo com query adversarial muito
 específica (ver tests/test_acl.py).
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from src.retrieval.hybrid import HybridResult, hybrid_search
+
+
+class _AnyPrincipal:
+    """Sentinela explícita para busca administrativa/benchmark sem filtro de ACL."""
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "<ANY_PRINCIPAL>"
+
+
+ANY_PRINCIPAL = _AnyPrincipal()
+
+
+def resolve_principals(
+    principals: Any,
+    tenant_id: Optional[str] = None,
+    allow_unrestricted: bool = True,
+) -> Optional[List[str]]:
+    """
+    Resolve e valida a lista de principals para prevenir comportamento fail-open involuntário.
+
+    - Se `principals` for `ANY_PRINCIPAL`: retorna None (acesso deliberadamente irrestrito).
+    - Se `principals` for fornecido: retorna cópia em lista.
+    - Se `principals` for None e `allow_unrestricted=False`: levanta ValueError se `tenant_id` estiver definido.
+    """
+    if principals is ANY_PRINCIPAL:
+        return None
+    if principals is None:
+        if tenant_id and not allow_unrestricted:
+            raise ValueError(
+                f"Busca para o tenant '{tenant_id}' requer 'principals' explícito. "
+                "Para busca administrativa intencional sem restrição de ACL, passe ANY_PRINCIPAL."
+            )
+        return None
+    return list(principals)
+
 
 
 @dataclass

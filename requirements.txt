@@ -41,3 +41,9 @@ reportlab>=4.0.0
 scenedetect>=0.7.0
 opencv-python-headless>=4.8.0
 faster-whisper>=1.0.0
+
+# Passo 28 — Graph RAG
+networkx>=3.0.0
+
+# Testes e Qualidade
+pytest>=8.0.0

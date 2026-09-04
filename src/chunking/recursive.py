@@ -23,6 +23,7 @@ Decisões de design:
 
 from __future__ import annotations
 
+import hashlib
 import re
 import uuid
 from typing import List, Optional
@@ -30,6 +31,15 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from src.parsing.canonical_model import AudioSegment, Document, ElementType, Image, Paragraph, Section, Table, VideoScene
+
+# Namespace determinístico para geração de IDs de chunk via UUIDv5
+CHUNK_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "arquiteturaRAG.chunks")
+
+
+def generate_chunk_id(document_id: str, chunk_index: int, content: str) -> str:
+    """Gera um UUIDv5 determinístico para o chunk baseado no document_id, índice e hash do conteúdo."""
+    content_hash = hashlib.sha256(content.strip().encode("utf-8")).hexdigest()[:16]
+    return str(uuid.uuid5(CHUNK_NAMESPACE, f"{document_id}:{chunk_index}:{content_hash}"))
 
 
 # ---------------------------------------------------------------------------
@@ -150,16 +160,20 @@ def chunk_recursive(
     last_chunk_text: Optional[str] = None  # para calcular overlap
 
     def make_chunk(content: str, element_ids: List[str]) -> Chunk:
+        chunk_idx = len(chunks)
+        content_stripped = content.strip()
+        c_id = generate_chunk_id(document.id, chunk_idx, content_stripped)
         return Chunk(
+            chunk_id=c_id,
             document_id=document.id,
-            content=content.strip(),
+            content=content_stripped,
             tenant_id=document.tenant_id,
             acl=[entry.model_dump() for entry in document.acl],
             metadata={
                 "source_uri": document.source_uri,
                 "document_title": document.title,
                 "section_title": current_section_title,
-                "chunk_index": len(chunks),
+                "chunk_index": chunk_idx,
                 "element_ids": element_ids,
                 "max_tokens": max_tokens,
                 "overlap": overlap,

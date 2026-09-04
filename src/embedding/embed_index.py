@@ -133,14 +133,15 @@ def embed_and_index(
     t_total = time.time()
 
     # Processa em batches para não sobrecarregar memória
-    points: List[PointStruct] = []
+    total_upserted = 0
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i : i + batch_size]
         texts = [c.content for c in batch]
 
         vectors = embed_texts(texts, batch_size=batch_size)
 
-        for chunk, vector in zip(batch, vectors):
+        batch_points: List[PointStruct] = []
+        for offset, (chunk, vector) in enumerate(zip(batch, vectors)):
             payload = {
                 "chunk_id": chunk.chunk_id,
                 "document_id": chunk.document_id,
@@ -149,17 +150,17 @@ def embed_and_index(
                 # Lista achatada de principals (Passo 11) — Qdrant faz match
                 # eficiente em campos de array com MatchAny; a estrutura rica
                 # em "acl" (principal+permission) fica para auditoria/exibição.
-                "acl_principals": [e.get("principal") for e in chunk.acl if e.get("principal")],
+                "acl_principals": [e.get("principal") for e in chunk.acl if isinstance(e, dict) and e.get("principal")] if isinstance(chunk.acl, list) else [],
                 "source_uri": chunk.metadata.get("source_uri", ""),
                 "document_title": chunk.metadata.get("document_title", ""),
                 "section_title": chunk.metadata.get("section_title", ""),
-                "chunk_index": chunk.metadata.get("chunk_index", i),
+                "chunk_index": chunk.metadata.get("chunk_index", i + offset),
                 "content": chunk.content,          # guardamos o texto para inspeção
                 "parent_chunk_id": chunk.parent_chunk_id or chunk.metadata.get("parent_chunk_id"),
                 "parent_content": chunk.metadata.get("parent_content", ""),
                 "embedding_model_version": model_version,
             }
-            points.append(
+            batch_points.append(
                 PointStruct(
                     id=chunk.chunk_id,   # Qdrant aceita UUID como ID
                     vector=vector,
@@ -167,10 +168,10 @@ def embed_and_index(
                 )
             )
 
-        print(f"  batch {i // batch_size + 1}: {len(batch)} chunks embedados")
-
-    # Upsert em lote único (mais eficiente que um por um)
-    client.upsert(collection_name=collection, points=points)
+        # Upsert em lote do batch para não sobrecarregar memória em corpora volumosos
+        client.upsert(collection_name=collection, points=batch_points)
+        total_upserted += len(batch_points)
+        print(f"  batch {i // batch_size + 1}: {len(batch)} chunks embedados e indexados")
 
     total_time = time.time() - t_total
     stats = {
