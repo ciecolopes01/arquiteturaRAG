@@ -22,15 +22,42 @@ import uuid
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers — ID determinístico de documentos
 # ---------------------------------------------------------------------------
+
+# Namespace raiz para documentos deste projeto (UUIDv5 fixo, nunca muda)
+DOC_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "arquiteturaRAG.documents")
+
+
+def document_id_for(source_uri: str, content_hash: str = "") -> str:
+    """
+    Gera um ID estável UUIDv5 para um documento a partir de source_uri e
+    content_hash.
+
+    Por que UUIDv5 e não uuid4()?
+    - UUIDv5 é determinístico: o mesmo (source_uri, content_hash) sempre
+      produz o mesmo ID.
+    - Isso permite reindexações incrementais sem criar pontos duplicados no
+      Qdrant e garante que os expected_chunk_ids do golden dataset continuem
+      válidos entre execuções.
+
+    Se content_hash for vazio (ex.: durante testes sem leitura real do arquivo),
+    o ID ainda é estável dado o source_uri — suficiente para identificar
+    documentos sem conteúdo ainda computado.
+    """
+    seed = f"{source_uri}:{content_hash}" if content_hash else source_uri
+    return str(uuid.uuid5(DOC_NAMESPACE, seed))
+
 
 def _new_id() -> str:
-    """Gera um ID UUID4 como string."""
+    """
+    Fallback para elementos que não são Document (Paragraph, Section, Table…).
+    Esses elementos não têm source_uri próprio, então uuid4 é aceitável.
+    Documentos (classe Document) usam document_id_for() via model_validator.
+    """
     return str(uuid.uuid4())
 
 
@@ -198,7 +225,7 @@ class Document(BaseModel):
     - parser_version: versão do parser que gerou este Document
     """
 
-    id: str = Field(default_factory=_new_id)
+    id: str = Field(default="", description="ID determinístico gerado via document_id_for()")
     source_uri: str
     title: Optional[str] = None
 
@@ -218,6 +245,27 @@ class Document(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"frozen": False}
+
+    @model_validator(mode="after")
+    def _compute_deterministic_id(self) -> "Document":
+        """
+        Gera o ID do documento de forma determinística a partir de source_uri
+        e content_hash usando UUIDv5.
+
+        Por que aqui e não no default_factory?
+        - default_factory roda antes de os outros campos serem preenchidos,
+          então não teria acesso a source_uri nem content_hash.
+        - O model_validator 'after' roda com o modelo já construído.
+
+        Se o ID já foi fornecido explicitamente (ex.: carregando do JSON),
+        ele é preservado — sem sobrescrever.
+        """
+        if not self.id:
+            self.id = document_id_for(
+                self.source_uri,
+                self.content_hash or "",
+            )
+        return self
 
     # ------------------------------------------------------------------
     # Helpers

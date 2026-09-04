@@ -17,8 +17,6 @@ Estratégia de chunking baseada em significado (não em tamanho fixo):
 from __future__ import annotations
 
 import re
-import time
-import uuid
 from typing import List, Optional, Tuple
 
 import numpy as np

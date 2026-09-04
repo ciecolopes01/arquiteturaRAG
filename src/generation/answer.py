@@ -34,13 +34,16 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional
 
+from src.config import settings
+from src.retrieval.hybrid import HybridResult, hybrid_search
+
 logger = logging.getLogger("rag.answer")
 
 # Observabilidade (Passo 14)
 try:
     from src.observability.instrumentation import (
-        pipeline_trace,
         get_current_trace,
+        pipeline_trace,
         record_generation_cost,
     )
     _OBS_AVAILABLE = True
@@ -55,9 +58,6 @@ except ImportError:
     @contextlib.contextmanager
     def pipeline_trace(query, log=True):
         yield None
-
-from src.config import settings
-from src.retrieval.hybrid import HybridResult, hybrid_search
 
 
 def _serialize_chunk(c: HybridResult) -> Dict[str, Any]:
@@ -436,6 +436,9 @@ def answer(
     # Se já há trace ativo (ex: chamado de dentro de pipeline_trace),
     # não abre um novo. Se não há, cria um automático para garantir
     # que cada query seja logada (critério do Passo 14).
+    from src.retrieval.acl_filter import resolve_principals
+    principals = resolve_principals(principals, tenant_id=tenant_id)
+
     _active_trace = get_current_trace()
     _auto_trace_ctx = None
 
@@ -578,6 +581,9 @@ def answer_stream(
     Executa retrieval com pré-filtro de tenant e ACL (principals),
     grava no cache ao término da transmissão e registra telemetria.
     """
+    from src.retrieval.acl_filter import resolve_principals
+    principals = resolve_principals(principals, tenant_id=tenant_id)
+
     # 0. Cache check
     try:
         from src.optimization.caching import cache
@@ -620,6 +626,7 @@ def answer_stream(
     # 2. Streaming e acumulação para cache/telemetria
     parts: List[str] = []
     t0 = time.time()
+    completed = False
     try:
         if not settings.anthropic_api_key:
             sim = _simulated_answer(query, chunks)
@@ -632,9 +639,10 @@ def answer_stream(
             for token in _stream_claude(query, chunks, model=model):
                 parts.append(token)
                 yield token
+        completed = True
     finally:
         full_answer = "".join(parts)
-        if full_answer:
+        if completed and full_answer:
             latency_ms = (time.time() - t0) * 1000
             in_tokens = sum(len(c.content.split()) for c in chunks)
             out_tokens = max(1, len(full_answer.split()))

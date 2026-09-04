@@ -64,7 +64,7 @@ def build_audio_file(
             "-f",
             "lavfi",
             "-i",
-            f"anullsrc=r=16000:cl=mono",
+            "anullsrc=r=16000:cl=mono",
             "-t",
             str(pause_sec),
             str(silence_wav),

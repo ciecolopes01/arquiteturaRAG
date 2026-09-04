@@ -1,6 +1,11 @@
-import sys; sys.path.insert(0,'.')
-from src.config import settings
+import sys
+
+sys.path.insert(0, ".")
+
 from qdrant_client import QdrantClient
+
+from src.config import settings
+
 client = QdrantClient(url=settings.qdrant_url)
 ids = [
     '730440d1-8c15-44d2-a14a-b1efb14361af','1d3054be-d70c-4e18-ae6b-bfffd35fddd7',

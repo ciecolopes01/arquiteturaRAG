@@ -1,0 +1,44 @@
+Avaliação Offline de Sistemas RAG
+
+Por que avaliar offline?
+
+Antes de qualquer mudança no pipeline (novo chunker, novo modelo de embedding, reranker), é preciso saber se a mudança melhora ou piora o sistema. Avaliação online (em produção com usuários reais) é lenta e arriscada. Avaliação offline, com um golden dataset fixo, é rápida, reproduzível e barata.
+
+O Golden Dataset
+
+Um golden dataset é uma coleção de pares (pergunta, chunk_esperado). Cada pergunta tem resposta conhecida — isto é, sabemos exatamente quais chunks devem ser recuperados para respondê-la corretamente.
+
+Como construir o golden dataset:
+1. Ler o corpus e identificar informações específicas em chunks individuais.
+2. Escrever perguntas cuja resposta está claramente em um chunk específico.
+3. Anotar o chunk_id esperado para cada pergunta.
+4. Verificar que a pergunta não tem resposta em outros chunks (para evitar falsos negativos na avaliação).
+
+Exemplo de entrada no golden dataset:
+{
+  "question": "Qual a constante k usada no RRF nesta plataforma?",
+  "expected_chunk_ids": ["chunk-id-do-documento-sobre-rrf"]
+}
+
+Métricas
+
+Recall@K: proporção de perguntas em que pelo menos um chunk esperado aparece nos primeiros K resultados. É a métrica primária para retrieval.
+
+Recall@K = (perguntas com chunk correto no top-K) / (total de perguntas)
+
+Precision@K: proporção de resultados relevantes entre os K retornados. Menos importante para RAG — o LLM consegue ignorar chunks irrelevantes, mas não consegue "inventar" chunks que não foram recuperados.
+
+MRR (Mean Reciprocal Rank): média do inverso da posição do primeiro chunk correto. Mais sensível que Recall@K para avaliar se o chunk certo está no topo.
+
+Valores de referência
+
+Para um sistema RAG corporativo funcional:
+- Recall@5 > 0.75: mínimo aceitável.
+- Recall@5 > 0.85: bom.
+- Recall@5 > 0.92: excelente.
+
+Um sistema com Recall@5 abaixo de 0.60 geralmente produz respostas incorretas ou alucinadas com frequência inaceitável.
+
+Quando re-avaliar?
+
+Toda mudança que afeta o pipeline de retrieval (chunking, embedding, indexação, filtros) deve ser seguida de uma nova rodada de avaliação offline com o mesmo golden dataset.

@@ -15,17 +15,13 @@ Verifica que:
 """
 
 import json
-import tempfile
 import time
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 # Importa o módulo de observabilidade
 from src.observability.instrumentation import (
     PipelineTrace,
-    StageMetric,
     check_recall_drift,
     estimate_llm_cost,
     get_current_trace,
@@ -37,7 +33,6 @@ from src.observability.instrumentation import (
     record_routing_decision,
     trace_stage,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -368,6 +363,8 @@ class TestRecallHistory:
 # Teste de integração — hybrid_search + pipeline_trace
 # ---------------------------------------------------------------------------
 
+@pytest.mark.integration
+@pytest.mark.usefixtures("require_qdrant", "require_postgres")
 class TestIntegrationWithHybridSearch:
     """
     Testa que o pipeline real de retrieval popula o trace corretamente.
@@ -382,11 +379,13 @@ class TestIntegrationWithHybridSearch:
             pytest.skip("Módulo hybrid não disponível")
 
         try:
+            from src.retrieval.acl_filter import ANY_PRINCIPAL
             with pipeline_trace("O que é Retrieval Augmented Generation?", log=False) as trace:
-                results = hybrid_search(
+                _ = hybrid_search(
                     "O que é Retrieval Augmented Generation?",
                     top_k=3,
                     tenant_id="tenant-test",
+                    principals=ANY_PRINCIPAL,
                 )
 
             # Deve ter registrado pelo menos embedding + dense + bm25 + fusion
@@ -410,8 +409,9 @@ class TestIntegrationWithHybridSearch:
             pytest.skip("Módulo hybrid não disponível")
 
         try:
+            from src.retrieval.acl_filter import ANY_PRINCIPAL
             with pipeline_trace("chunk e embedding", log=False) as trace:
-                hybrid_search("chunk e embedding", top_k=3, tenant_id="tenant-test")
+                hybrid_search("chunk e embedding", top_k=3, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
 
             json_str = trace.to_json()
             parsed = json.loads(json_str)

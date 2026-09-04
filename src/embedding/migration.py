@@ -13,7 +13,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -24,7 +24,6 @@ from qdrant_client.models import (
 
 from src.chunking.recursive import Chunk
 from src.config import settings
-from src.embedding.embed_index import search_dense
 from src.embedding.model import embed_query, embed_texts, embedding_dimension
 
 

@@ -9,14 +9,12 @@ aproximando a representação vetorial da distribuição dos documentos reais no
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.config import settings
 from src.embedding.embed_index import search_dense
-from src.embedding.model import embed_query
 from src.retrieval.bm25_index import search_bm25
-from src.retrieval.hybrid import HybridResult, RRF_K
+from src.retrieval.hybrid import RRF_K, HybridResult
 
 # Observabilidade (Passo 14)
 try:

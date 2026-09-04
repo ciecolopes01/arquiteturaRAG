@@ -38,14 +38,19 @@ ANY_PRINCIPAL = _AnyPrincipal()
 def resolve_principals(
     principals: Any,
     tenant_id: Optional[str] = None,
-    allow_unrestricted: bool = True,
+    allow_unrestricted: bool = False,
 ) -> Optional[List[str]]:
     """
     Resolve e valida a lista de principals para prevenir comportamento fail-open involuntário.
 
     - Se `principals` for `ANY_PRINCIPAL`: retorna None (acesso deliberadamente irrestrito).
     - Se `principals` for fornecido: retorna cópia em lista.
-    - Se `principals` for None e `allow_unrestricted=False`: levanta ValueError se `tenant_id` estiver definido.
+    - Se `principals` for None e `allow_unrestricted=False` (padrão): levanta ValueError
+      se `tenant_id` estiver definido — evita busca sem filtro de ACL por omissão acidental.
+
+    Para busca administrativa intencional sem restrição de ACL, passe `ANY_PRINCIPAL`
+    explicitamente. Para contextos sem tenant (ex.: ingestion, benchmark sem multi-tenant),
+    chame sem `tenant_id` ou com `allow_unrestricted=True`.
     """
     if principals is ANY_PRINCIPAL:
         return None

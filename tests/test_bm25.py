@@ -18,14 +18,18 @@ from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from src.parsing.simple_parsers import parse_file
+import pytest
+
 from src.chunking.recursive import chunk_recursive
+from src.parsing.simple_parsers import parse_file
+from src.retrieval.acl_filter import ANY_PRINCIPAL
 from src.retrieval.bm25_index import (
-    clear_bm25_table,
     create_bm25_table,
     index_bm25,
     search_bm25,
 )
+
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("require_postgres")]
 
 CORPUS_DIR = Path("data/seed_corpus")
 
@@ -73,7 +77,10 @@ def test_index_corpus() -> bool:
         return True
     except Exception as e:
         print(f"  [FALHOU] {e}")
-        import traceback; traceback.print_exc()
+        import traceback
+
+        traceback.print_exc()
+        assert False, str(e)
         return False
 
 
@@ -89,7 +96,7 @@ def test_exact_term_search() -> bool:
     ]
     failed = []
     for query, expected_term, label in checks:
-        results = search_bm25(query, top_k=5, tenant_id="tenant-test")
+        results = search_bm25(query, top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
         found = any(expected_term.lower() in r["content"].lower() for r in results)
         if not found:
             failed.append(label)
@@ -101,6 +108,7 @@ def test_exact_term_search() -> bool:
 
     if failed:
         print(f"  [FALHOU] {len(failed)} busca(s) sem resultado esperado")
+        assert False
         return False
     print(f"  [OK] Todos os {len(checks)} termos exatos encontrados")
     return True
@@ -118,7 +126,7 @@ def test_natural_language_search() -> bool:
     ]
     passed = 0
     for query, expected, label in queries:
-        results = search_bm25(query, top_k=5, tenant_id="tenant-test")
+        results = search_bm25(query, top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
         found = any(expected.lower() in r["content"].lower() for r in results)
         if found:
             passed += 1
@@ -130,6 +138,7 @@ def test_natural_language_search() -> bool:
     ok = passed >= 2  # pelo menos 2/3
     status = "OK" if ok else "FALHOU"
     print(f"  [{status}] {passed}/{len(queries)} queries naturais com resultado correto")
+    assert ok
     return ok
 
 
@@ -138,14 +147,16 @@ def test_tenant_filter() -> bool:
     Tenant errado deve retornar 0 resultados mesmo com query exata.
     """
     print("  [*] test_tenant_filter...")
-    results_ok = search_bm25("embedding", top_k=5, tenant_id="tenant-test")
-    results_bad = search_bm25("embedding", top_k=5, tenant_id="tenant-INEXISTENTE")
+    results_ok = search_bm25("embedding", top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
+    results_bad = search_bm25("embedding", top_k=5, tenant_id="tenant-INEXISTENTE", principals=ANY_PRINCIPAL)
 
     if len(results_ok) == 0:
         print("  [FALHOU] tenant correto nao retornou resultados")
+        assert False
         return False
     if len(results_bad) != 0:
         print(f"  [FALHOU] tenant errado retornou {len(results_bad)} resultado(s)")
+        assert False
         return False
 
     print(f"  [OK] tenant correto={len(results_ok)} | tenant errado=0")
@@ -155,9 +166,10 @@ def test_tenant_filter() -> bool:
 def test_empty_query_returns_empty() -> bool:
     """Termo completamente ausente do corpus retorna lista vazia."""
     print("  [*] test_empty_query_returns_empty...")
-    results = search_bm25("xyzabc123inexistente", top_k=5, tenant_id="tenant-test")
+    results = search_bm25("xyzabc123inexistente", top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
     if results:
         print(f"  [FALHOU] retornou {len(results)} resultado(s) para termo inexistente")
+        assert False
         return False
     print("  [OK] termo inexistente retorna lista vazia")
     return True
@@ -166,7 +178,7 @@ def test_empty_query_returns_empty() -> bool:
 def test_scores_normalized() -> bool:
     """Score do top-1 deve ser 1.0 (normalizado) ou próximo."""
     print("  [*] test_scores_normalized...")
-    results = search_bm25("embedding retrieval", top_k=5, tenant_id="tenant-test")
+    results = search_bm25("embedding retrieval", top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
     if not results:
         print("  [SKIP] nenhum resultado — pulando")
         return True
@@ -174,6 +186,7 @@ def test_scores_normalized() -> bool:
     ok = 0.9 <= top <= 1.001  # top-1 deve ser exatamente 1.0 pela normalização
     status = "OK" if ok else "FALHOU"
     print(f"  [{status}] top-1 score={top} (esperado ~1.0)")
+    assert ok
     return ok
 
 

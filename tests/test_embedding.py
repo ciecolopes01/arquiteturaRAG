@@ -13,14 +13,18 @@ Rodar com: python tests/test_embedding.py
 """
 
 import sys
-import time
 from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from src.parsing.simple_parsers import parse_file
+import pytest
+
 from src.chunking.recursive import chunk_recursive
 from src.embedding.embed_index import embed_and_index, search_dense
+from src.parsing.simple_parsers import parse_file
+from src.retrieval.acl_filter import ANY_PRINCIPAL
+
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("require_qdrant")]
 
 CORPUS_DIR = Path("data/seed_corpus")
 
@@ -95,7 +99,10 @@ def test_indexing() -> bool:
         return True, stats
     except Exception as e:
         print(f"  [FALHOU] {e}")
-        import traceback; traceback.print_exc()
+        import traceback
+
+        traceback.print_exc()
+        assert False, str(e)
         return False, {}
 
 
@@ -105,6 +112,7 @@ def test_search_returns_results(stats: dict) -> bool:
     results = search_dense("O que é RAG?", top_k=5)
     if not results:
         print("  [FALHOU] nenhum resultado retornado")
+        assert False
         return False
     print(f"  [OK] {len(results)} resultado(s) | top score={results[0]['score']}")
     return True
@@ -133,21 +141,24 @@ def test_relevant_chunks_in_top3() -> bool:
     # Critério: pelo menos 3/5 no top-3 (corpus seed pequeno, mais leniente)
     ok = passed >= 3
     status = "OK" if ok else "FALHOU"
-    print(f"  [{status}] {passed}/{len(TEST_QUERIES)} queries com chunk correto no top-3")
+    print(f"  [{status}] {passed}/{len(TEST_QUERIES)} ({rate:.0%}) queries com chunk correto no top-3")
+    assert ok
     return ok
 
 
 def test_tenant_filter() -> bool:
     """Pre-filtro de tenant_id funciona: outro tenant → 0 resultados."""
     print("  [*] test_tenant_filter...")
-    results_with = search_dense("RAG", top_k=5, tenant_id="tenant-test")
-    results_without = search_dense("RAG", top_k=5, tenant_id="tenant-INEXISTENTE")
+    results_with = search_dense("RAG", top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
+    results_without = search_dense("RAG", top_k=5, tenant_id="tenant-INEXISTENTE", principals=ANY_PRINCIPAL)
 
     if len(results_with) == 0:
         print("  [FALHOU] tenant correto não retornou resultados")
+        assert False
         return False
     if len(results_without) != 0:
         print(f"  [FALHOU] tenant errado retornou {len(results_without)} resultado(s)")
+        assert False
         return False
 
     print(f"  [OK] tenant correto={len(results_with)} resultados | "
@@ -183,7 +194,7 @@ def main() -> None:
     for name, ok in results.items():
         print(f"  {name}: {'OK' if ok else 'FALHOU'}")
 
-    print(f"\nReferência de performance:")
+    print("\nReferência de performance:")
     print(f"  Modelo     : {stats.get('embedding_model', '?')}")
     print(f"  Device     : {stats.get('device', '?')}")
     print(f"  Total chunks: {stats.get('total_chunks', '?')}")

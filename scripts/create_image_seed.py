@@ -19,10 +19,12 @@ from pathlib import Path
 import docx
 from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import (
     Image as RLImage,
+)
+from reportlab.platypus import (
     PageBreak,
     Paragraph,
     SimpleDocTemplate,

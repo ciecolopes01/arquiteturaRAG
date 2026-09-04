@@ -13,7 +13,6 @@ Cada vídeo possui:
 
 from __future__ import annotations
 
-import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -170,7 +169,7 @@ def build_scene_video(
                     "-f",
                     "lavfi",
                     "-i",
-                    f"anullsrc=r=16000:cl=mono",
+                    "anullsrc=r=16000:cl=mono",
                     "-t",
                     str(dur),
                     str(silence_wav),

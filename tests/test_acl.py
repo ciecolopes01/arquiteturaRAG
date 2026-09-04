@@ -18,15 +18,18 @@ Rodar com: python tests/test_acl.py
 
 import sys
 import uuid
-from pathlib import Path
 
 sys.path.insert(0, ".")
 
+import pytest
+
 from src.chunking.recursive import Chunk
 from src.embedding.embed_index import embed_and_index
-from src.retrieval.bm25_index import index_bm25
-from src.retrieval.acl_filter import UserContext, secure_search
 from src.evaluation.offline_eval import evaluate_recall_at_k, load_golden_dataset
+from src.retrieval.acl_filter import ANY_PRINCIPAL, UserContext, secure_search
+from src.retrieval.bm25_index import index_bm25
+
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("require_qdrant", "require_postgres")]
 
 # Conteúdo único (nonce) — evita colisão com qualquer coisa já no corpus,
 # tornando o teste de "zero falsos negativos" inequívoco.
@@ -76,6 +79,7 @@ def test_correct_tenant_and_group_sees_content() -> bool:
     results = secure_search(NONCE_A, ctx, top_k=5)
     ok = _contains_nonce(results, NONCE_A)
     print(f"  [{'OK' if ok else 'FALHOU'}] tenant A + grupo financeiro -> {len(results)} resultado(s)")
+    assert ok
     return ok
 
 
@@ -86,6 +90,7 @@ def test_wrong_group_same_tenant_sees_nothing() -> bool:
     results = secure_search(NONCE_A, ctx, top_k=5)
     ok = not _contains_nonce(results, NONCE_A)
     print(f"  [{'OK' if ok else 'FALHOU'}] tenant A + grupo rh (sem permissão) -> {len(results)} resultado(s)")
+    assert ok
     return ok
 
 
@@ -96,6 +101,7 @@ def test_wrong_tenant_sees_nothing() -> bool:
     results = secure_search(NONCE_A, ctx, top_k=5)
     ok = not _contains_nonce(results, NONCE_A)
     print(f"  [{'OK' if ok else 'FALHOU'}] tenant B (mesmo com grupo financeiro) -> {len(results)} resultado(s)")
+    assert ok
     return ok
 
 
@@ -107,6 +113,7 @@ def test_adversarial_exact_query_still_blocked() -> bool:
     results = secure_search(exact_query, ctx, top_k=10)
     ok = not _contains_nonce(results, NONCE_A)
     print(f"  [{'OK' if ok else 'FALHOU'}] query adversarial exata de outro tenant -> {len(results)} resultado(s)")
+    assert ok
     return ok
 
 
@@ -119,6 +126,7 @@ def test_cross_contamination_between_a_and_b() -> bool:
     ok_b_not_a = not _contains_nonce(results_b, NONCE_A)
     ok = ok_b_sees_b and ok_b_not_a
     print(f"  [{'OK' if ok else 'FALHOU'}] tenant B vê B={ok_b_sees_b}, não vê A={ok_b_not_a}")
+    assert ok
     return ok
 
 
@@ -133,6 +141,7 @@ def test_backfilled_legacy_content_still_searchable() -> bool:
     results = secure_search("O que é RAG e quais são seus componentes?", ctx, top_k=5)
     ok = len(results) > 0
     print(f"  [{'OK' if ok else 'FALHOU'}] conteúdo legado (backfill) -> {len(results)} resultado(s)")
+    assert ok
     return ok
 
 
@@ -143,16 +152,18 @@ def test_legacy_content_blocked_without_group_geral() -> bool:
     results = secure_search("O que é RAG e quais são seus componentes?", ctx, top_k=5)
     ok = len(results) == 0
     print(f"  [{'OK' if ok else 'FALHOU'}] tenant certo, grupo sem ACL -> {len(results)} resultado(s)")
+    assert ok
     return ok
 
 
 def test_backward_compatible_without_principals() -> bool:
-    """hybrid_search/offline_eval sem passar `principals` continua funcionando (Passos 4-10)."""
+    """hybrid_search/offline_eval com ANY_PRINCIPAL para compatibilidade com buscas administrativas."""
     print("  [*] test_backward_compatible_without_principals...")
     dataset = load_golden_dataset()
-    result = evaluate_recall_at_k(dataset, k=5, mode="hybrid", tenant_id="tenant-test", verbose=False)
+    result = evaluate_recall_at_k(dataset, k=5, mode="hybrid", tenant_id="tenant-test", principals=ANY_PRINCIPAL, verbose=False)
     ok = result["recall_at_k"] >= 0.90
     print(f"  [{'OK' if ok else 'FALHOU'}] Recall@5 sem filtro de ACL = {result['recall_at_k']}")
+    assert ok
     return ok
 
 

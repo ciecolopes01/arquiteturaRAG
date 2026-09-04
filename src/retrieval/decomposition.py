@@ -11,11 +11,10 @@ from __future__ import annotations
 import json
 import re
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from src.config import settings
-from src.retrieval.hybrid import HybridResult, RRF_K, hybrid_search
+from src.retrieval.hybrid import RRF_K, HybridResult, hybrid_search
 from src.retrieval.query_router import routed_hybrid_search
 
 # Observabilidade (Passo 14)

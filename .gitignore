@@ -5,8 +5,6 @@ __pycache__/
 venv/
 .pytest_cache/
 *.egg-info/
-data/seed_corpus/*
-!data/seed_corpus/.gitkeep
 logs/*
 !logs/.gitkeep
 benchmarks/results/*

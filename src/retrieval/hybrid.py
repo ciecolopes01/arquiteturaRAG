@@ -28,7 +28,7 @@ HybridResult é um dataclass simples com:
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 # Observabilidade (Passo 14)
@@ -203,6 +203,12 @@ def hybrid_search(
 
     Retorna lista de HybridResult ordenada por rrf_score desc.
     """
+    # Garante fail-closed: se tenant_id fornecido sem principals, lança ValueError
+    # a menos que o chamador passe ANY_PRINCIPAL explicitamente para acesso irrestrito.
+    # Import local para evitar importação circular (acl_filter importa HybridResult de hybrid).
+    from src.retrieval.acl_filter import resolve_principals  # noqa: PLC0415
+    principals = resolve_principals(principals, tenant_id=tenant_id)
+
     # Busca em paralelo (sequencial nesta fase — paralelismo real entra em V1.1)
     dense_results = search_dense(
         query, top_k=dense_candidates, tenant_id=tenant_id, principals=principals,

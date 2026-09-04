@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Controle de Acesso em RAG (ACL e Tenant)</title>
+</head>
+<body>
+  <h1>Controle de Acesso em Plataformas RAG</h1>
+
+  <h2>Por que ACL no nível do retrieval?</h2>
+  <p>
+    Em ambientes corporativos, documentos têm diferentes níveis de confidencialidade.
+    Um usuário do departamento financeiro não deve conseguir recuperar documentos de RH
+    confidenciais, mesmo que sua pergunta seja semanticamente similar a um trecho nesses documentos.
+  </p>
+  <p>
+    A abordagem correta é aplicar filtros de ACL <strong>antes</strong> da busca de similaridade,
+    não depois. Filtrar depois é um risco de segurança: o modelo pode ter acesso ao chunk
+    mesmo que o resultado seja descartado.
+  </p>
+
+  <h2>Multi-tenancy</h2>
+  <p>
+    Em plataformas SaaS com múltiplos clientes (tenants), o <code>tenant_id</code> deve ser
+    o filtro primário. Nenhuma query deve cruzar dados entre tenants diferentes.
+    O Qdrant suporta isso via payload filtering: a coleção pode ser compartilhada, mas cada
+    query inclui um filtro obrigatório <code>tenant_id = X</code>.
+  </p>
+
+  <h2>Modelo de ACL nesta plataforma</h2>
+  <p>Cada chunk indexado carrega os seguintes campos de controle:</p>
+  <ul>
+    <li><code>tenant_id</code>: identificador do cliente/organização dona do documento.</li>
+    <li><code>acl</code>: lista de entradas no formato <code>principal:permissão</code>.
+        O principal pode ser um usuário, grupo ou role.</li>
+  </ul>
+  <p>No momento da busca, o sistema recebe o <code>user_context</code> (tenant e grupos do usuário)
+  e constrói um filtro Qdrant que permite apenas chunks onde:</p>
+  <ul>
+    <li>O <code>tenant_id</code> corresponde ao tenant do usuário; E</li>
+    <li>Pelo menos uma entrada da <code>acl</code> corresponde a um principal do usuário.</li>
+  </ul>
+
+  <h2>Testes de segurança</h2>
+  <p>
+    O critério de qualidade para ACL é mais rigoroso que para retrieval: deve haver
+    <strong>zero falsos negativos de segurança</strong>. Um usuário sem permissão nunca
+    deve ver um chunk, mesmo com uma query adversarial muito específica.
+  </p>
+  <p>
+    O teste padrão: criar um chunk com conteúdo único, dar permissão apenas ao tenant A,
+    e verificar que uma query do tenant B sobre exatamente esse conteúdo retorna zero resultados.
+  </p>
+</body>
+</html>

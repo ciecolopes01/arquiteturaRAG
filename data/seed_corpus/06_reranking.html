@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Reranking em Sistemas RAG</title>
+</head>
+<body>
+  <h1>Reranking em Sistemas RAG</h1>
+
+  <h2>O que é reranking?</h2>
+  <p>
+    Reranking é uma etapa opcional após o retrieval inicial que usa um modelo mais sofisticado
+    (cross-encoder) para reordenar os candidatos recuperados. O retrieval inicial (dense + BM25)
+    é rápido mas aproximado; o reranker é mais lento mas muito mais preciso.
+  </p>
+
+  <h2>Bi-encoder vs Cross-encoder</h2>
+  <p>
+    O pipeline típico de retrieval usa <strong>bi-encoders</strong> na fase de indexação:
+    query e documento são codificados separadamente e a similaridade é calculada por produto interno.
+    Isso permite indexar milhões de documentos e fazer buscas em milissegundos.
+  </p>
+  <p>
+    Um <strong>cross-encoder</strong> recebe a query e o documento juntos e calcula uma pontuação
+    de relevância diretamente. É muito mais preciso porque pode modelar interações entre os termos
+    da query e do documento, mas é 100x mais lento — inviável para buscar em milhões de documentos.
+  </p>
+  <p>
+    A solução padrão: usar bi-encoder para recuperar os top-100, depois cross-encoder para reordenar
+    apenas esses 100 e selecionar os top-5 para o contexto do LLM.
+  </p>
+
+  <h2>Rerankers via API</h2>
+  <p>Nesta plataforma, usamos reranker via API para evitar depender de GPU local:</p>
+  <ul>
+    <li><strong>Cohere Rerank</strong>: boa qualidade multilíngue, API simples.</li>
+    <li><strong>Voyage Rerank</strong>: alta qualidade em inglês e português.</li>
+    <li><strong>Jina Rerank</strong>: opção mais barata para volumes altos.</li>
+  </ul>
+
+  <h2>Impacto no Recall@5</h2>
+  <p>
+    Em benchmarks internos, o reranker tipicamente melhora o Recall@5 em 5 a 15 pontos percentuais.
+    O ganho é maior quando o retrieval inicial tem muitos falsos positivos (chunks semanticamente
+    similares mas factualmente irrelevantes).
+  </p>
+
+  <h2>Quando o reranker piora o resultado?</h2>
+  <p>
+    Se o chunk correto não estiver nos top-100 do retrieval inicial, o reranker não pode salvá-lo.
+    Por isso, o Recall@100 do retrieval deve ser alto antes de adicionar o reranker.
+    Se o Recall@5 cair com o reranker, investigar se o retrieval inicial está devolvendo
+    os chunks corretos nas primeiras 100 posições.
+  </p>
+</body>
+</html>

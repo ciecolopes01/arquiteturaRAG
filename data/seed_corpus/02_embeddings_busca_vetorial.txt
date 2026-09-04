@@ -1,0 +1,32 @@
+Busca Vetorial e Embeddings
+
+O que são embeddings?
+
+Embeddings são representações numéricas de texto em um espaço de alta dimensão (tipicamente 768 a 4096 dimensões). Textos semanticamente similares ficam próximos nesse espaço; textos diferentes ficam distantes. Essa propriedade permite buscar por significado, e não apenas por palavras exatas.
+
+Modelos de embedding populares
+
+- OpenAI text-embedding-3-large: 3072 dimensões, excelente qualidade geral.
+- Voyage AI voyage-3: otimizado para retrieval em inglês e multilíngue.
+- Cohere embed-v3: boa performance em documentos corporativos.
+- BGE-M3: modelo open-source multilíngue, ótimo para português.
+
+Como funciona a busca por similaridade?
+
+Dado um texto de consulta, o sistema:
+1. Gera o embedding da consulta usando o mesmo modelo usado na indexação.
+2. Calcula a distância entre o embedding da consulta e os embeddings dos chunks indexados.
+3. Retorna os K chunks mais próximos (menor distância = maior similaridade).
+
+As métricas de distância mais comuns são:
+- Cosine similarity: mede o ângulo entre vetores. Mais comum.
+- Dot product: similar ao cosine, mas sensível à magnitude.
+- Euclidean distance: distância geométrica no espaço vetorial.
+
+O que é Qdrant?
+
+Qdrant é um banco de dados vetorial de alto desempenho, escrito em Rust. Suporta filtros por metadados (payload filtering), o que é essencial para implementar ACL no nível do retrieval: só retornar chunks que o usuário tem permissão de ver. Nesta plataforma, o Qdrant é o motor de busca dense.
+
+Dimensionamento
+
+Para um corpus de 1 milhão de chunks com embeddings de 1536 dimensões, o índice vetorial ocupa aproximadamente 6GB de RAM. O Qdrant suporta persistência em disco com índice HNSW, que equilibra qualidade de busca e velocidade.

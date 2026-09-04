@@ -26,7 +26,7 @@ jobs:
 
       - name: Lint with Ruff
         run: |
-          ruff check .
+          ruff check src/ tests/ scripts/
 
       - name: Run AST security regression tests
         run: |
@@ -34,4 +34,4 @@ jobs:
 
       - name: Run offline unit tests
         run: |
-          pytest tests/test_canonical_model.py tests/test_chunking.py tests/test_acl.py tests/test_optimization_latency.py -v
+          pytest -m "not integration" --tb=short

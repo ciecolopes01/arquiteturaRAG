@@ -23,12 +23,10 @@ from typing import List, Optional
 
 from src.parsing.canonical_model import (
     Document,
-    ElementType,
     Paragraph,
     Section,
     Table,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -97,7 +95,7 @@ def parse_txt(
             continue
 
         # Bloco com uma única linha — possível heading
-        lines = [l for l in block.splitlines() if l.strip()]
+        lines = [line for line in block.splitlines() if line.strip()]
 
         if len(lines) == 1 and _looks_like_heading(lines[0]):
             heading_text = lines[0].strip()
@@ -155,7 +153,7 @@ def parse_html(
     - Elementos aninhados são aplanados (não há tree de Sections nesta fase)
     """
     try:
-        from bs4 import BeautifulSoup, NavigableString, Tag
+        from bs4 import BeautifulSoup
     except ImportError:
         raise ImportError(
             "beautifulsoup4 não instalado. "

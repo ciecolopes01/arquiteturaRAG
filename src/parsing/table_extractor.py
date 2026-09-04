@@ -27,7 +27,6 @@ from typing import List, Optional, Tuple
 
 from src.parsing.canonical_model import Table
 
-
 # ---------------------------------------------------------------------------
 # Constantes de apresentação
 # ---------------------------------------------------------------------------

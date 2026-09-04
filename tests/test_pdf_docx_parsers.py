@@ -20,8 +20,8 @@ from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from src.parsing.simple_parsers import parse_file
 from src.parsing.canonical_model import ElementType
+from src.parsing.simple_parsers import parse_file
 
 CORPUS_DIR = Path("data/seed_corpus")
 
@@ -161,7 +161,7 @@ def test_docx_tables_extracted() -> bool:
         for t in tables:
             if not t.headers:
                 print(f"    [AVISO] {name}: tabela sem headers")
-    print(f"  [OK] Extração de tabela verificada (corpus seed atual não tem tabelas nos DOCX)")
+    print("  [OK] Extração de tabela verificada (corpus seed atual não tem tabelas nos DOCX)")
     return True
 
 

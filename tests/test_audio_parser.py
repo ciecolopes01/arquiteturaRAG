@@ -20,10 +20,9 @@ import pytest
 sys.path.insert(0, ".")
 
 from src.chunking.recursive import chunk_recursive
-from src.parsing.audio_parser import convert_audio_to_wav, parse_audio, transcribe_audio_segments
+from src.parsing.audio_parser import parse_audio
 from src.parsing.canonical_model import AudioSegment, Document, ElementType
 from src.parsing.simple_parsers import parse_file
-from src.parsing.video_parser import format_timestamp
 
 SEED_DIR = Path("data/seed_corpus")
 AUDIO_1 = SEED_DIR / "22_podcast_governanca_rag.mp3"

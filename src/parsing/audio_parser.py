@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 from src.parsing.canonical_model import AudioSegment, Document, ElementType
 from src.parsing.video_parser import format_timestamp, get_whisper_model

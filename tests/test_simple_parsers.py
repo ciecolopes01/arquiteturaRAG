@@ -12,15 +12,13 @@ valida que:
 Rodar com: python tests/test_simple_parsers.py
 """
 
-import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from src.parsing.simple_parsers import parse_file
 from src.parsing.canonical_model import ElementType
-
+from src.parsing.simple_parsers import parse_file
 
 CORPUS_DIR = Path("data/seed_corpus")
 

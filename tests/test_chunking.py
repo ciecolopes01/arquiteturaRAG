@@ -17,8 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, ".")
 
+from src.chunking.recursive import WORDS_PER_TOKEN, Chunk, chunk_recursive
 from src.parsing.simple_parsers import parse_file
-from src.chunking.recursive import chunk_recursive, Chunk, WORDS_PER_TOKEN
 
 CORPUS_DIR = Path("data/seed_corpus")
 
@@ -251,7 +251,7 @@ def main() -> None:
 
     corpus = all_corpus_chunks()
     total_chunks = sum(len(v) for v in corpus.values())
-    print(f"\nResumo de chunks por documento:")
+    print("\nResumo de chunks por documento:")
     for fname, chunks in sorted(corpus.items()):
         words = [c.word_count for c in chunks]
         avg = sum(words) / len(words) if words else 0

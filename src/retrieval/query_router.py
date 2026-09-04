@@ -20,13 +20,12 @@ from __future__ import annotations
 import logging
 import re
 import time
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.embedding.embed_index import search_dense
 from src.retrieval.bm25_index import search_bm25
-from src.retrieval.hybrid import HybridResult, RRF_K, reciprocal_rank_fusion
+from src.retrieval.hybrid import RRF_K, HybridResult, reciprocal_rank_fusion
 
 logger = logging.getLogger("rag.query_router")
 
@@ -203,6 +202,9 @@ def routed_hybrid_search(
     5. Retorna resultados, intenção detectada e pesos aplicados.
     """
     t0 = time.perf_counter()
+    from src.retrieval.acl_filter import resolve_principals
+    principals = resolve_principals(principals, tenant_id=tenant_id)
+
     intent = classify_intent(query)
     weights = get_channel_weights(intent, boosts=boosts)
 

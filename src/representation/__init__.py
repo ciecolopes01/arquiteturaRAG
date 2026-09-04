@@ -6,8 +6,8 @@ from src.representation.multi_vector import (
     RepresentationType,
     generate_representations,
     index_multi_vector,
-    search_multi_vector,
     multi_vector_hybrid_search,
+    search_multi_vector,
 )
 
 __all__ = [

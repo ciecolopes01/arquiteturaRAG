@@ -17,13 +17,16 @@ Rodar com: python tests/test_routing.py
 (requer Qdrant e Postgres rodando, com o corpus indexado)
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from src.retrieval.routing import estimate_complexity, choose_path, route_search, COMPLEXITY_THRESHOLD
+import pytest
+
+from src.retrieval.acl_filter import ANY_PRINCIPAL
+from src.retrieval.routing import COMPLEXITY_THRESHOLD, choose_path, estimate_complexity, route_search
 
 GOLDEN_PATH = Path("data/golden_dataset.json")
 TENANT = "tenant-test"
@@ -80,7 +83,7 @@ def evaluate_routing() -> dict:
 
     print(f"\n  Rodando {len(dataset)} perguntas via route_search (threshold={COMPLEXITY_THRESHOLD})...\n")
     for item in dataset:
-        routed = route_search(item["question"], top_k=5, tenant_id=TENANT)
+        routed = route_search(item["question"], top_k=5, tenant_id=TENANT, principals=ANY_PRINCIPAL)
         result_ids = {r.chunk_id for r in routed.results}
         hit = _hit(result_ids, item["expected_chunk_ids"])
 
@@ -113,7 +116,8 @@ def _summarize(entries: list, label: str) -> dict:
     }
 
 
-def test_recall_and_latency_per_path() -> bool:
+@pytest.mark.integration
+def test_recall_and_latency_per_path(require_qdrant, require_postgres) -> bool:
     print("  [*] test_recall_and_latency_per_path...")
     per_path = evaluate_routing()
 
@@ -138,6 +142,7 @@ def test_recall_and_latency_per_path() -> bool:
     ok = ok_latency_gap and ok_fast_recall
     print(f"\n  [{'OK' if ok else 'FALHOU'}] fast mais rápido que full={ok_latency_gap}, "
           f"Recall@5 fast >= 0.85={ok_fast_recall}")
+    assert ok
     return ok
 
 

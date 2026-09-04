@@ -194,7 +194,7 @@ def create_xlsx_files() -> None:
             cell.alignment = align_left if col_idx <= 2 else align_center
 
     # Aba 3: Rascunho_Vazio (intencionalmente vazia para testar descarte pelo parser)
-    ws2_3 = wb2.create_sheet(title="Rascunho_Vazio")
+    wb2.create_sheet(title="Rascunho_Vazio")
     # Deixar sem dados
 
     file2_path = corpus_dir / "15_inventario_hardware_rag.xlsx"

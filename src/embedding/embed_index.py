@@ -93,7 +93,7 @@ def ensure_collection(recreate: bool = False) -> None:
         collection_name=collection,
         vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
     )
-    print(f"[Qdrant] Coleção criada.")
+    print("[Qdrant] Coleção criada.")
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +214,9 @@ def search_dense(
 
     Retorna lista de dicts com: chunk_id, score, content, metadata.
     """
+    from src.retrieval.acl_filter import resolve_principals
+    principals = resolve_principals(principals, tenant_id=tenant_id)
+
     client = _get_client()
     trace = get_current_trace()
 

@@ -13,12 +13,12 @@ Rodar com: pytest tests/test_decomposition.py -v
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-
-import pytest
 
 sys.path.insert(0, ".")
 
+import pytest
+
+from src.retrieval.acl_filter import ANY_PRINCIPAL
 from src.retrieval.decomposition import (
     decompose_query,
     decomposed_search,
@@ -70,10 +70,11 @@ def test_multi_query_fusion_deduplication_and_bonus() -> None:
     assert fused[0].chunk_id == "chunk-A"
 
 
-def test_decomposed_search_end_to_end() -> None:
+@pytest.mark.integration
+def test_decomposed_search_end_to_end(require_qdrant, require_postgres) -> None:
     """Testa busca decomposta ponta a ponta com retrieval real."""
     q = "Como funciona o Tesseract OCR e qual é a função do modelo Claude Vision no pipeline?"
-    results, subqueries = decomposed_search(q, top_k=5, tenant_id="tenant-test", use_llm=False)
+    results, subqueries = decomposed_search(q, top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL, use_llm=False)
     assert len(subqueries) >= 2
     assert len(results) > 0
     assert results[0].chunk_id is not None

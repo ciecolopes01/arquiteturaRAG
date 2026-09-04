@@ -1,0 +1,43 @@
+Retrieval Híbrido e Reciprocal Rank Fusion
+
+O problema da busca single-channel
+
+Busca densa (embeddings) é ótima para encontrar documentos semanticamente relacionados, mesmo sem palavras em comum. Mas falha com termos muito específicos: siglas, nomes próprios, números de contrato, códigos de produto. Um embedding de "NF-e 12345" pode não encontrar um chunk sobre "Nota Fiscal Eletrônica número doze mil trezentos e quarenta e cinco".
+
+BM25 captura exatamente esses casos de correspondência lexical. Mas falha quando o usuário usa sinônimos ou paráfrases.
+
+A solução: combinar os dois canais.
+
+Reciprocal Rank Fusion (RRF)
+
+RRF é o algoritmo mais simples e robusto para combinar rankings de múltiplas fontes:
+
+score(chunk) = Σ 1 / (k + rank_i(chunk))
+
+Onde:
+- k = 60 (constante de suavização, valor canônico da literatura)
+- rank_i(chunk) = posição do chunk no ranking do canal i (começando em 1)
+- A soma é sobre todos os canais em que o chunk aparece
+
+Propriedades do RRF:
+- Chunks que aparecem no topo de múltiplos canais ganham score muito alto.
+- Chunks que aparecem em apenas um canal ainda podem ser resgatados se tiverem rank alto nesse canal.
+- Não requer normalização: escalas diferentes dos dois canais não importam.
+- É parameter-free (além do k, que raramente precisa ser ajustado).
+
+Exemplo
+
+Suponha 3 chunks, A, B, C. Resultados por canal:
+- Dense: [A(1), B(2), C(3)]
+- BM25:  [C(1), A(2), B(3)]
+
+Com k=60:
+- A: 1/61 + 1/62 = 0.03266
+- B: 1/62 + 1/63 = 0.03187
+- C: 1/63 + 1/61 = 0.03224
+
+Ranking final: A > C > B. O chunk A, que liderou o dense, vence.
+
+Quando usar pesos diferentes?
+
+Nesta plataforma, a V1 usa RRF uniforme (peso igual para todos os canais). A V1.1 introduz routing por intenção: queries com termos muito específicos (código, número, sigla) aumentam o peso do BM25; queries mais conceituais aumentam o peso do dense.

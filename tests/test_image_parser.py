@@ -21,7 +21,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from PIL import Image as PILImage, ImageDraw, ImageFont
+from PIL import Image as PILImage
+from PIL import ImageDraw, ImageFont
 
 sys.path.insert(0, ".")
 
@@ -29,20 +30,18 @@ from src.chunking.parent_child import chunk_parent_child
 from src.chunking.recursive import chunk_recursive
 from src.chunking.semantic import chunk_semantic
 from src.evaluation.offline_eval import evaluate_recall_at_k, load_golden_dataset
-from src.parsing.canonical_model import Document, ElementType, Image, Paragraph, Section
+from src.parsing.canonical_model import Document, ElementType, Image
 from src.parsing.docx_parser import parse_docx
 from src.parsing.image_parser import (
     build_image_content,
     describe_image_visual,
-    extract_images_from_docx,
-    extract_images_from_pdf_page,
     extract_text_from_image,
     find_tesseract_binary,
-    parse_image_file,
     process_image,
 )
 from src.parsing.pdf_parser import parse_pdf
 from src.parsing.simple_parsers import parse_file
+from src.retrieval.acl_filter import ANY_PRINCIPAL
 
 CORPUS_DIR = Path("data/seed_corpus")
 
@@ -224,12 +223,13 @@ def test_semantic_chunking_with_images() -> None:
 # Teste de Retrieval e Avaliação Offline no Golden Dataset
 # ---------------------------------------------------------------------------
 
-def test_golden_dataset_image_questions() -> None:
+@pytest.mark.integration
+def test_golden_dataset_image_questions(require_qdrant, require_postgres) -> None:
     """Verifica que as perguntas de teste sobre imagens retornam o chunk esperado no top-5."""
     dataset = load_golden_dataset()
     image_questions = [d for d in dataset if d["id"] in ["gd-44", "gd-45", "gd-46", "gd-47", "gd-48"]]
     assert len(image_questions) == 5, f"Esperava 5 perguntas de imagem, encontrou {len(image_questions)}"
 
-    res = evaluate_recall_at_k(image_questions, k=5, mode="hybrid", tenant_id="tenant-test")
+    res = evaluate_recall_at_k(image_questions, k=5, mode="hybrid", tenant_id="tenant-test", principals=ANY_PRINCIPAL)
     assert res["recall_at_k"] >= 0.8, f"Recall@5 das perguntas de imagem insuficiente: {res['recall_at_k']}"
     assert res["hits"] >= 4, f"Apenas {res['hits']}/5 perguntas acertadas."

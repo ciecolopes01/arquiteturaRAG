@@ -13,13 +13,12 @@ do seed corpus:
 
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, ".")
 
 from src.chunking.parent_child import chunk_parent_child
 from src.chunking.recursive import chunk_recursive
-from src.generation.answer import _build_context_block, expand_parent_context
+from src.generation.answer import expand_parent_context
 from src.parsing.simple_parsers import parse_file
 from src.retrieval.hybrid import HybridResult
 
@@ -194,11 +193,11 @@ def run_evaluation():
     print("-" * 88)
 
     avg_ratio = sum(r["ratio"] for r in results_table) / len(results_table)
-    print(f"\n[Conclusão do Critério de Pronto - Passo 17]")
+    print("\n[Conclusão do Critério de Pronto - Passo 17]")
     print(f"- Total de perguntas avaliadas: {len(results_table)}/10")
     print(f"- Ganho médio de contexto relevante preservado: {avg_ratio:.2f}x de palavras/tokens por resposta.")
-    print(f"- Deduplicação no Context Engine: filhos adjacentes condensados sem repetição no prompt do LLM.")
-    print(f"- Qualidade do contexto: respostas ganham o contexto circundante completo da seção/tabela.")
+    print("- Deduplicação no Context Engine: filhos adjacentes condensados sem repetição no prompt do LLM.")
+    print("- Qualidade do contexto: respostas ganham o contexto circundante completo da seção/tabela.")
     print("=" * 88)
 
 

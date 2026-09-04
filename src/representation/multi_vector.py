@@ -20,7 +20,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -37,7 +37,7 @@ from src.chunking.recursive import Chunk
 from src.config import settings
 from src.embedding.model import embed_query, embed_texts, embedding_dimension
 from src.retrieval.bm25_index import search_bm25
-from src.retrieval.hybrid import HybridResult, RRF_K
+from src.retrieval.hybrid import RRF_K, HybridResult
 
 
 class RepresentationType(str, Enum):
@@ -67,7 +67,7 @@ class ChunkRepresentation:
 
 def _extract_fallback_summary(text: str) -> str:
     """Extrai um resumo heurístico do texto quando LLM não está disponível."""
-    lines = [l.strip() for l in text.splitlines() if l.strip() and not l.startswith("#")]
+    lines = [line.strip() for line in text.splitlines() if line.strip() and not line.startswith("#")]
     if not lines:
         return text[:150]
     # Pega as primeiras 2 sentenças

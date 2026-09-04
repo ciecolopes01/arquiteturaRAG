@@ -33,8 +33,8 @@ except ImportError:
     def record_routing_decision(path, complexity):
         pass
 
-from src.retrieval.hybrid import HybridResult, hybrid_search
-from src.retrieval.reranker import RerankResult, rerank
+from src.retrieval.hybrid import hybrid_search
+from src.retrieval.reranker import rerank
 
 # ---------------------------------------------------------------------------
 # Estimativa de complexidade

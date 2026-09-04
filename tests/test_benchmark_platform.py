@@ -27,7 +27,6 @@ from src.evaluation.benchmark import (
     benchmark_config,
     categorize_question,
     generate_reports,
-    run_benchmark_suite,
 )
 
 CONFIGS_DIR = Path("benchmarks/configs")

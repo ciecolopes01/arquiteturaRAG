@@ -3,10 +3,12 @@ Script para gerar os chunk_ids do corpus seed indexado no Qdrant.
 Roda uma vez para descobrir os IDs reais e montar o golden dataset.
 """
 import sys
+
 sys.path.insert(0, ".")
 
-from src.config import settings
 from qdrant_client import QdrantClient
+
+from src.config import settings
 
 client = QdrantClient(url=settings.qdrant_url)
 

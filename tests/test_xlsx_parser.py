@@ -22,10 +22,8 @@ Rodar com:
 from __future__ import annotations
 
 import datetime
-import io
 import sys
 from pathlib import Path
-from typing import List
 
 sys.path.insert(0, ".")
 
@@ -35,9 +33,7 @@ from src.chunking.recursive import chunk_recursive
 from src.parsing.canonical_model import Document, ElementType, Table
 from src.parsing.simple_parsers import parse_file
 from src.parsing.xlsx_parser import (
-    _extract_table_from_block,
     _format_cell_value,
-    _resolve_sheet_grid,
     parse_xlsx,
 )
 
@@ -119,7 +115,7 @@ def create_multi_table_xlsx(tmp_path: Path) -> Path:
     ws1.append(["F1-Score", 0.932])
 
     # Aba 2: vazia
-    ws2 = wb.create_sheet(title="Aba_Vazia")
+    wb.create_sheet(title="Aba_Vazia")
 
     file_path = tmp_path / "multi_tabela.xlsx"
     wb.save(str(file_path))

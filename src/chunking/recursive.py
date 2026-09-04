@@ -24,13 +24,21 @@ Decisões de design:
 from __future__ import annotations
 
 import hashlib
-import re
 import uuid
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from src.parsing.canonical_model import AudioSegment, Document, ElementType, Image, Paragraph, Section, Table, VideoScene
+from src.parsing.canonical_model import (
+    AudioSegment,
+    Document,
+    ElementType,
+    Image,
+    Paragraph,
+    Section,
+    Table,
+    VideoScene,
+)
 
 # Namespace determinístico para geração de IDs de chunk via UUIDv5
 CHUNK_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "arquiteturaRAG.chunks")

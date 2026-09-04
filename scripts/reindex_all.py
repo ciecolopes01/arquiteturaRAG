@@ -2,6 +2,7 @@
 Script para reindexação incremental de todo o seed_corpus.
 """
 import sys
+
 sys.path.insert(0, ".")
 
 from src.ingestion.incremental_reindex import incremental_reindex_corpus

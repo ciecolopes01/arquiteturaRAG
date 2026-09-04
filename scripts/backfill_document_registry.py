@@ -30,16 +30,16 @@ from pathlib import Path
 sys.path.insert(0, ".")
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue
+from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from src.config import settings
-from src.parsing.simple_parsers import parse_file
-from src.retrieval.bm25_index import _get_conn, create_bm25_table
 from src.ingestion.incremental_reindex import (
     _ensure_registry_table,
     _upsert_registry_entry,
     stable_document_id,
 )
+from src.parsing.simple_parsers import parse_file
+from src.retrieval.bm25_index import _get_conn, create_bm25_table
 
 CORPUS_DIR = Path("data/seed_corpus")
 TENANT_ID = "tenant-test"

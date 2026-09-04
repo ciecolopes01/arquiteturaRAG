@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -24,11 +23,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
-logger = logging.getLogger("rag.benchmark")
-
-
-from src.config import settings
 from src.retrieval.hybrid import reciprocal_rank_fusion
+
+logger = logging.getLogger("rag.benchmark")
 
 CONFIGS_DIR = Path("benchmarks/configs")
 RESULTS_DIR = Path("benchmarks/results")
@@ -356,7 +353,7 @@ def generate_reports(results: List[BenchmarkResult], output_dir: Path) -> Tuple[
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("\n".join(md_lines))
 
-    print(f"\n[Benchmark] Relatórios salvos com sucesso em:")
+    print("\n[Benchmark] Relatórios salvos com sucesso em:")
     print(f"  - Markdown: {md_path}")
     print(f"  - JSON:     {json_path}")
     return md_path, json_path

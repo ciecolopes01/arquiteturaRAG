@@ -1,0 +1,45 @@
+Observabilidade em Pipelines RAG
+
+Por que monitorar cada estágio?
+
+Um pipeline RAG tem muitos estágios: parsing, chunking, embedding, retrieval dense, retrieval BM25, fusão RRF, reranking, geração. Sem instrumentação, é impossível saber qual estágio está lento, caro ou degradando.
+
+Exemplo de problema oculto: o Recall@5 cai de 0.85 para 0.72. Sem observabilidade, não se sabe se o problema é no embedding (API com latência alta gerando vetores errados), no Qdrant (índice desatualizado), no BM25 (tabela Postgres desatualizada), ou no reranker. Com logs estruturados por estágio, o diagnóstico é imediato.
+
+O que instrumentar
+
+Por query:
+- Latência total (end-to-end).
+- Latência por estágio: embedding da query, busca dense, busca BM25, fusão RRF, reranking, geração.
+- Número de tokens da resposta gerada.
+- Número de chunks recuperados e passados ao LLM.
+
+Por chamada de API:
+- Custo estimado: tokens de embedding, tokens de reranker, tokens de entrada e saída do LLM.
+- Latência da chamada de API.
+- Número de tentativas (retries).
+
+Métricas agregadas (periodicamente):
+- Recall@5 no golden dataset: deve ser rodado a cada mudança relevante e logado com timestamp.
+- Distribuição de latência por estágio.
+- Custo total por dia/semana.
+
+Formato de log
+
+Os logs devem ser JSON estruturado para facilitar ingestão em ferramentas de análise:
+
+{
+  "timestamp": "2025-01-15T10:30:00Z",
+  "query_id": "q-uuid",
+  "stage": "embedding",
+  "latency_ms": 45,
+  "cost_usd": 0.000012,
+  "tokens": 23,
+  "status": "ok"
+}
+
+Alertas recomendados
+
+- Recall@5 abaixo de 0.70: investigar imediatamente.
+- Latência total acima de 5 segundos: degradação da experiência do usuário.
+- Custo por query acima de USD 0.05: pipeline fora de controle.

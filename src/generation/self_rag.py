@@ -22,16 +22,14 @@ import math
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
+
+from src.generation.answer import answer
+from src.retrieval.hybrid import HybridResult
+from src.retrieval.query_router import routed_hybrid_search
+from src.retrieval.reranker import RerankResult, rerank, to_hybrid_result
 
 logger = logging.getLogger("rag.self_rag")
-
-
-from src.config import settings
-from src.generation.answer import AnswerResult, answer
-from src.retrieval.hybrid import HybridResult, hybrid_search
-from src.retrieval.query_router import routed_hybrid_search
-from src.retrieval.reranker import RerankResult, rerank
 
 # Observabilidade (Passo 14)
 try:
@@ -226,12 +224,18 @@ def adaptive_answer(
         )
 
     # 4. Suficiente: Gera resposta através do Claude (answer) usando os chunks validados
+    # Converte RerankResult → HybridResult na fronteira: answer() e expand_parent_context()
+    # acessam atributos exclusivos de HybridResult (dense_rank, bm25_rank, etc.).
+    prefetched: List[HybridResult] = [
+        c if isinstance(c, HybridResult) else to_hybrid_result(c)
+        for c in reranked
+    ]
     ans_res = answer(
         query=query,
         top_k=top_k,
         tenant_id=tenant_id,
         principals=principals,
-        prefetched_chunks=reranked,
+        prefetched_chunks=prefetched,
     )
     elapsed = (time.perf_counter() - t0) * 1000
 

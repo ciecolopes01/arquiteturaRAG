@@ -13,7 +13,6 @@ Valida:
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -21,15 +20,11 @@ sys.path.insert(0, ".")
 
 from src.chunking.recursive import Chunk
 from src.retrieval.graph_search import (
-    Entity,
     KnowledgeGraphIndex,
-    Relation,
     extract_entities_and_relations,
-    extract_entities_from_text,
     get_graph_index,
     search_graph,
 )
-from src.retrieval.hybrid import reciprocal_rank_fusion
 from src.retrieval.query_router import (
     QueryIntent,
     classify_intent,
@@ -166,7 +161,6 @@ def test_relational_questions_recall_improvement():
 
         # Busca puramente no grafo
         graph_res = search_graph(q, top_k=3)
-        graph_cids = [r["chunk_id"] for r in graph_res]
 
         # Simula ranking textual ruidoso/fraco
         dense_hits = [{"chunk_id": "c_cache", "score": 0.5}]

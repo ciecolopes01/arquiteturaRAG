@@ -1,0 +1,32 @@
+Chunking de Documentos
+
+Por que chunkar?
+
+LLMs têm janelas de contexto limitadas. Mesmo os modelos com janelas grandes (200k tokens) não podem receber toda uma base de documentos de uma vez. Além disso, chunks menores tendem a ter embeddings mais precisos semanticamente. O objetivo do chunking é dividir documentos em pedaços que:
+- Sejam semanticamente coesos (não cortam uma ideia no meio).
+- Sejam pequenos o suficiente para caber no contexto.
+- Tenham overlap suficiente para não perder contexto na fronteira entre chunks.
+
+Estratégias de chunking
+
+Recursive Character Splitter (mais simples)
+Divide o texto recursivamente por separadores: primeiro por dois newlines, depois por um newline, depois por ponto, depois por vírgula, depois por espaço. Parâmetros: max_tokens e overlap.
+
+Parent-Child Chunking (mais sofisticado)
+Armazena chunks maiores (parents) e indexa chunks menores (children). Na busca, recupera os children; no contexto para o LLM, usa os parents. Melhora a precisão do retrieval sem sacrificar o contexto.
+
+Semantic Chunking
+Usa os próprios embeddings para detectar onde o tema muda. Mais caro computacionalmente, mas produz chunks com melhor coerência semântica.
+
+Parâmetros típicos
+
+Para a maioria das aplicações corporativas:
+- max_tokens: 512 tokens (aproximadamente 400 palavras em português)
+- overlap: 64 tokens (aproximadamente 50 palavras)
+- Separadores: \n\n, \n, ., ,
+
+O overlap garante que informações no final de um chunk também apareçam no início do próximo, evitando que perguntas sobre conteúdo na fronteira entre chunks não encontrem resposta.
+
+Impacto no Recall@K
+
+Chunks muito grandes reduzem a precisão do embedding (muitos temas diferentes no mesmo vetor). Chunks muito pequenos perdem contexto e podem não conter informação suficiente para gerar uma boa resposta. O tamanho ótimo depende do corpus e deve ser validado com o golden dataset.

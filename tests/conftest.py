@@ -3,7 +3,9 @@ Configuração global de testes e fixtures de disponibilidade de infraestrutura.
 """
 
 import socket
+
 import pytest
+
 from src.config import settings
 
 

@@ -11,13 +11,11 @@ Valida:
 
 import sys
 import unittest
-from pathlib import Path
 
 sys.path.insert(0, ".")
 
 from src.chunking.semantic import (
     _cosine_similarity,
-    _semantic_split_sentences,
     _split_into_sentences,
     chunk_semantic,
 )

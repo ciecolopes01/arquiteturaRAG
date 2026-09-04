@@ -31,7 +31,6 @@ Decisões de design:
 from __future__ import annotations
 
 import hashlib
-import re
 from collections import Counter
 from pathlib import Path
 from typing import List, Optional

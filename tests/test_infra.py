@@ -10,9 +10,13 @@ Rodar com: python tests/test_infra.py
 
 import sys
 
-sys.path.insert(0, ".")  # permite rodar da raiz do projeto
+import pytest
 
 from src.config import settings
+
+sys.path.insert(0, ".")  # permite rodar da raiz do projeto
+
+pytestmark = [pytest.mark.integration]
 
 
 def test_qdrant() -> bool:

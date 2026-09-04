@@ -334,19 +334,28 @@ class KnowledgeGraphIndex:
         sorted_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
 
         results = []
+        authorized_entities: Set[str] = set()
+
         for cid, score in sorted_chunks:
             meta = self.chunk_metadata.get(cid, {})
-            c_tenant = meta.get("tenant_id")
-            c_principals = meta.get("acl_principals", [])
+            c_tenant = meta.get("tenant_id") or ""
+            c_principals = meta.get("acl_principals") or []
 
-            # Filtro de tenant se especificado
-            if tenant_id is not None and c_tenant and c_tenant != tenant_id:
+            # Filtro de tenant — deny-by-default: chunk sem tenant falha o check
+            # (alinhado ao comportamento de dense/BM25 que rejeitam por padrão)
+            if tenant_id is not None and c_tenant != tenant_id:
                 continue
 
-            # Filtro de ACL se especificado
-            if principals is not None and c_principals:
-                if not any(p in c_principals for p in principals):
-                    continue
+            # Filtro de ACL — deny-by-default: chunk sem ACL falha o check
+            # (alinhado ao &amp;&amp; do Postgres e MatchAny do Qdrant que não casam com lista vazia)
+            if principals is not None and not (set(principals) & set(c_principals)):
+                continue
+
+            # Coleta entidades apenas dos chunks autorizados (evita vazar nomes de
+            # entidades de outros tenants via matched_entities antes da filtragem)
+            for entity, chunk_set in self.entity_to_chunks.items():
+                if cid in chunk_set:
+                    authorized_entities.add(entity)
 
             content = self.chunk_store.get(cid, "")
             results.append(
@@ -360,7 +369,7 @@ class KnowledgeGraphIndex:
                     "section_title": meta.get("section_title"),
                     "parent_chunk_id": meta.get("parent_chunk_id"),
                     "parent_content": meta.get("parent_content"),
-                    "matched_entities": list(matched_subgraph_entities),
+                    "matched_entities": list(authorized_entities),
                 }
             )
             if len(results) >= top_k:
@@ -387,6 +396,9 @@ def search_graph(
     principals: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Função de entrada canônica para busca relacional no grafo com suporte a tenant e ACL."""
+    from src.retrieval.acl_filter import resolve_principals
+    principals = resolve_principals(principals, tenant_id=tenant_id)
+
     idx = get_graph_index()
     return idx.search_graph(
         query=query,

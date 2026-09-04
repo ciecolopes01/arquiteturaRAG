@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import List, Optional
 
 # Observabilidade (Passo 14)
 try:
@@ -99,6 +99,44 @@ class RerankResult:
     def rank_change(self) -> int:
         """Positivo = subiu, negativo = desceu."""
         return self.original_rank - self.new_rank
+
+
+# ---------------------------------------------------------------------------
+# Conversão de tipo
+# ---------------------------------------------------------------------------
+
+def to_hybrid_result(r: "RerankResult") -> "HybridResult":
+    """
+    Converte um RerankResult de volta ao contrato HybridResult.
+
+    Necessário na fronteira Self-RAG → answer(): adaptive_answer() produz
+    List[RerankResult] após o reranking, mas answer(prefetched_chunks=...)
+    espera List[HybridResult]. expand_parent_context() e _serialize_chunk()
+    acessam atributos que só existem em HybridResult (dense_rank, bm25_rank,
+    dense_score, bm25_score) — sem esta conversão o caminho estoura
+    AttributeError em runtime.
+
+    Os campos de ranking específico (dense_rank, bm25_rank, graph_rank,
+    dense_score, bm25_score) são preenchidos como None — a informação foi
+    consolidada no rerank_score. O graph_score recebe o rerank_score para
+    preservar a ordenação final.
+    """
+    return HybridResult(
+        chunk_id=r.chunk_id,
+        content=r.content,
+        rrf_score=r.rrf_score,
+        source_uri=r.source_uri,
+        document_title=r.document_title,
+        section_title=r.section_title,
+        dense_rank=None,
+        bm25_rank=None,
+        graph_rank=None,
+        dense_score=None,
+        bm25_score=None,
+        graph_score=r.rerank_score,
+        parent_chunk_id=r.parent_chunk_id,
+        parent_content=r.parent_content,
+    )
 
 
 # ---------------------------------------------------------------------------

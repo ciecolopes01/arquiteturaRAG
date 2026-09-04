@@ -15,9 +15,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-
-from src.evaluation.offline_eval import load_golden_dataset
+from typing import Any, Dict, List, Optional
 
 FEEDBACK_LOG_PATH = Path("logs/online_feedback.jsonl")
 GOLDEN_DATASET_PATH = Path("data/golden_dataset.json")

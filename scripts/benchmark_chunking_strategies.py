@@ -17,7 +17,6 @@ Métricas medidas:
 import os
 import sys
 import time
-from pathlib import Path
 from typing import Dict, List
 
 sys.path.insert(0, ".")
@@ -25,7 +24,6 @@ sys.path.insert(0, ".")
 from src.chunking.parent_child import chunk_parent_child
 from src.chunking.recursive import chunk_recursive
 from src.chunking.semantic import chunk_semantic
-from src.embedding.model import embed_query, embed_texts
 from src.generation.answer import expand_parent_context
 from src.parsing.simple_parsers import parse_file
 from src.retrieval.hybrid import HybridResult

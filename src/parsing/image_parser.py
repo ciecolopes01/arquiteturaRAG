@@ -21,12 +21,12 @@ import os
 import shutil
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from PIL import Image as PILImage
 
 from src.config import settings
-from src.parsing.canonical_model import Document, ElementType, Image
+from src.parsing.canonical_model import Document, Image
 
 # ---------------------------------------------------------------------------
 # Configuração e detecção do Tesseract OCR
@@ -269,7 +269,7 @@ def upload_image_to_storage(
             content_type=media_type,
         )
         return f"minio://{settings.minio_bucket}/{object_name}"
-    except Exception as e:
+    except Exception:
         return None
 
 

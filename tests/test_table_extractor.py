@@ -33,7 +33,6 @@ from src.parsing.table_extractor import (
     text_line_in_table_bbox,
 )
 
-
 # ===========================================================================
 # Helpers de fixture
 # ===========================================================================
@@ -481,7 +480,6 @@ class TestParsePdfWithTables:
 
     def test_chunk_has_table_metadata(self, seed_pdf_path):
         from src.chunking.recursive import chunk_recursive
-        from src.parsing.canonical_model import ElementType
         from src.parsing.pdf_parser import parse_pdf
         doc = parse_pdf(seed_pdf_path)
         chunks = chunk_recursive(doc)

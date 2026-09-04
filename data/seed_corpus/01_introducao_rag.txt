@@ -1,0 +1,29 @@
+Introdução ao Retrieval-Augmented Generation (RAG)
+
+O que é RAG?
+
+Retrieval-Augmented Generation (RAG) é uma técnica que combina dois componentes: um sistema de recuperação de informação e um modelo de linguagem grande (LLM). Em vez de depender apenas do conhecimento armazenado durante o treinamento, o LLM consulta uma base de documentos atualizada antes de gerar cada resposta.
+
+Como funciona o pipeline RAG?
+
+1. Ingestão: documentos são processados, divididos em chunks e indexados.
+2. Retrieval: dado uma pergunta do usuário, o sistema busca os chunks mais relevantes usando busca vetorial, BM25, ou uma combinação híbrida.
+3. Geração: o LLM recebe a pergunta + os chunks recuperados e gera uma resposta fundamentada, citando as fontes.
+
+Vantagens do RAG
+
+- Conhecimento atualizado: não depende da data de corte do treinamento.
+- Rastreabilidade: cada resposta pode citar a fonte exata.
+- Custo: atualizar a base de conhecimento é mais barato do que re-treinar o modelo.
+- Controle: é possível restringir o domínio de conhecimento do sistema.
+
+Desvantagens e desafios
+
+- Qualidade do retrieval: se os chunks errados forem recuperados, a resposta será incorreta mesmo com um LLM excelente.
+- Chunking: dividir documentos em pedaços de tamanho adequado é crítico.
+- Latência: o retrieval adiciona um passo extra ao pipeline.
+- Contexto limitado: LLMs têm janelas de contexto finitas; não é possível passar documentos inteiros.
+
+Métricas de avaliação
+
+A métrica mais importante no RAG é o Recall@K: dado um conjunto de perguntas com respostas conhecidas, em quantas delas o chunk correto aparece nos primeiros K resultados? Um Recall@5 acima de 0.8 é considerado sólido para a maioria das aplicações corporativas.

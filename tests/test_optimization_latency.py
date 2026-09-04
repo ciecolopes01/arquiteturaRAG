@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -25,6 +24,7 @@ sys.path.insert(0, ".")
 from src.config import settings
 from src.generation.answer import answer, answer_stream
 from src.optimization.caching import cache
+from src.retrieval.acl_filter import ANY_PRINCIPAL
 
 
 def test_cache_manager_basic_operations():
@@ -97,6 +97,7 @@ def test_cache_chunks_used_restoration(monkeypatch):
     """
     Valida que ao obter resposta do cache via answer(), chunks_used é devidamente restaurado.
     """
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
     from src.generation.answer import HybridResult
     cache.clear()
 
@@ -127,6 +128,7 @@ def test_cache_chunks_used_restoration(monkeypatch):
 
 def test_answer_stream_generator(monkeypatch):
     """Valida que o generator de streaming produz tokens progressivos."""
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
     from src.generation.answer import HybridResult
     fake_chunks = [
         HybridResult(
@@ -138,7 +140,7 @@ def test_answer_stream_generator(monkeypatch):
     ]
     monkeypatch.setattr("src.generation.answer.hybrid_search", lambda *args, **kwargs: fake_chunks)
 
-    tokens = list(answer_stream("O que é RAG?", top_k=2, tenant_id="tenant-test"))
+    tokens = list(answer_stream("O que é RAG?", top_k=2, tenant_id="tenant-test", principals=ANY_PRINCIPAL))
     assert len(tokens) > 0
     full_output = "".join(tokens)
     assert len(full_output) > 0
@@ -151,6 +153,7 @@ def test_latency_comparison_and_cache_hit_rate(monkeypatch):
     Mede latência média e P95 antes (rodada 1) vs depois (rodada 2 com cache hit).
     Registra tabela comparativa e valida hit rate de 100% na 2ª rodada.
     """
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
     from src.generation.answer import HybridResult
     fake_chunks = [
         HybridResult(
@@ -160,7 +163,12 @@ def test_latency_comparison_and_cache_hit_rate(monkeypatch):
             source_uri="latency.txt",
         )
     ]
-    monkeypatch.setattr("src.generation.answer.hybrid_search", lambda *args, **kwargs: fake_chunks)
+
+    def mock_hybrid(*args, **kwargs):
+        time.sleep(0.03)  # Simula latência de busca no cold retrieval (30ms)
+        return fake_chunks
+
+    monkeypatch.setattr("src.generation.answer.hybrid_search", mock_hybrid)
 
     test_queries = [
         "O que é RAG e quais são seus componentes fundamentais?",
@@ -176,7 +184,7 @@ def test_latency_comparison_and_cache_hit_rate(monkeypatch):
     latencies_r1 = []
     for q in test_queries:
         t0 = time.perf_counter()
-        res = answer(query=q, top_k=3, tenant_id="tenant-test")
+        _ = answer(query=q, top_k=3, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
         lat = (time.perf_counter() - t0) * 1000
         latencies_r1.append(lat)
 
@@ -185,7 +193,7 @@ def test_latency_comparison_and_cache_hit_rate(monkeypatch):
     hits_r2_start = cache.hits
     for q in test_queries:
         t0 = time.perf_counter()
-        res = answer(query=q, top_k=3, tenant_id="tenant-test")
+        _ = answer(query=q, top_k=3, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
         lat = (time.perf_counter() - t0) * 1000
         latencies_r2.append(lat)
 

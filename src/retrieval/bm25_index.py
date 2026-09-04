@@ -32,8 +32,8 @@ Funções:
 
 from __future__ import annotations
 
-from typing import List, Optional
 import time
+from typing import List, Optional
 
 # Observabilidade (Passo 14)
 try:
@@ -48,7 +48,6 @@ from psycopg2 import errors as pg_errors
 
 from src.chunking.recursive import Chunk
 from src.config import settings
-
 
 # ---------------------------------------------------------------------------
 # Conexão (singleton simples — sem pool nesta fase)
@@ -261,6 +260,9 @@ def search_bm25(
 
     Retorna lista de dicts com rank score normalizado.
     """
+    from src.retrieval.acl_filter import resolve_principals
+    principals = resolve_principals(principals, tenant_id=tenant_id)
+
     conn = _get_conn()
     sql = SEARCH_SQL if use_plain else SEARCH_SQL_SIMPLE
 

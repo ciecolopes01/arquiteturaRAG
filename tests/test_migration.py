@@ -13,14 +13,12 @@ Rodar com: pytest tests/test_migration.py -v
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, ".")
 
 from src.chunking.recursive import Chunk
-from src.config import settings
 from src.embedding.migration import (
     MigrationPlan,
     dual_write_chunks,
@@ -28,6 +26,8 @@ from src.embedding.migration import (
     prepare_target_collection,
     side_by_side_eval,
 )
+
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("require_qdrant")]
 
 
 @pytest.fixture

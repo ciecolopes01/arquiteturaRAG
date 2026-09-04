@@ -16,14 +16,15 @@ Rodar com:
 
 import sys
 from pathlib import Path
-from typing import List
 
 sys.path.insert(0, ".")
 
+import pytest
+
 from src.embedding.embed_index import search_dense
+from src.retrieval.acl_filter import ANY_PRINCIPAL
 from src.retrieval.bm25_index import search_bm25
 from src.retrieval.hybrid import (
-    HybridResult,
     RRF_K,
     hybrid_search,
     reciprocal_rank_fusion,
@@ -70,9 +71,9 @@ COMPARISON_QUERIES = [
 
 def show_comparison(query: str, label: str) -> dict:
     """Mostra top-5 de cada canal + híbrido lado a lado."""
-    dense = search_dense(query, top_k=5, tenant_id="tenant-test")
-    bm25  = search_bm25(query,  top_k=5, tenant_id="tenant-test")
-    hyb   = hybrid_search(query, top_k=5, tenant_id="tenant-test")
+    dense = search_dense(query, top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
+    bm25  = search_bm25(query,  top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
+    hyb   = hybrid_search(query, top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
 
     print(f"\n  [{label}] '{query[:60]}'")
     print(f"  {'Dense':^30} | {'BM25':^30} | {'Hibrido (RRF)':^35}")
@@ -134,12 +135,14 @@ def test_rrf_math_pure() -> bool:
     return True
 
 
-def test_hybrid_returns_results() -> bool:
+@pytest.mark.integration
+def test_hybrid_returns_results(require_qdrant=None, require_postgres=None) -> bool:
     """hybrid_search retorna resultados para query simples."""
     print("  [*] test_hybrid_returns_results...")
-    results = hybrid_search("RAG retrieval", top_k=5, tenant_id="tenant-test")
+    results = hybrid_search("RAG retrieval", top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
     if not results:
         print("  [FALHOU] nenhum resultado")
+        assert False
         return False
     top = results[0]
     print(f"  [OK] {len(results)} resultados | top rrf_score={top.rrf_score} | "
@@ -147,7 +150,8 @@ def test_hybrid_returns_results() -> bool:
     return True
 
 
-def test_both_channels_contribute() -> bool:
+@pytest.mark.integration
+def test_both_channels_contribute(require_qdrant=None, require_postgres=None) -> bool:
     """
     Para pelo menos 1 query, algum chunk no top-5 aparece nos dois canais
     (dense_rank não None e bm25_rank não None).
@@ -155,7 +159,7 @@ def test_both_channels_contribute() -> bool:
     print("  [*] test_both_channels_contribute...")
     found_dual = False
     for q in COMPARISON_QUERIES:
-        results = hybrid_search(q["query"], top_k=10, tenant_id="tenant-test")
+        results = hybrid_search(q["query"], top_k=10, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
         dual = [r for r in results if r.dense_rank is not None and r.bm25_rank is not None]
         if dual:
             found_dual = True
@@ -171,7 +175,8 @@ def test_both_channels_contribute() -> bool:
     return True  # não falha para corpus pequeno
 
 
-def test_hybrid_vs_solo_channels() -> bool:
+@pytest.mark.integration
+def test_hybrid_vs_solo_channels(require_qdrant=None, require_postgres=None) -> bool:
     """
     Para cada query, hibrido deve ter Recall@5 >= melhor canal isolado em
     pelo menos metade dos casos (avaliacao visual — sem golden dataset ainda).
@@ -184,9 +189,9 @@ def test_hybrid_vs_solo_channels() -> bool:
         exp     = q["expected"].lower()
         label   = q["label"]
 
-        dense  = search_dense(query, top_k=5, tenant_id="tenant-test")
-        bm25   = search_bm25(query,  top_k=5, tenant_id="tenant-test")
-        hybrid = hybrid_search(query, top_k=5, tenant_id="tenant-test")
+        dense  = search_dense(query, top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
+        bm25   = search_bm25(query,  top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
+        hybrid = hybrid_search(query, top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
 
         in_dense  = any(exp in r["content"].lower() for r in dense[:5])
         in_bm25   = any(exp in r["content"].lower() for r in bm25[:5])
@@ -217,11 +222,12 @@ def test_hybrid_vs_solo_channels() -> bool:
     return ok
 
 
-def test_tenant_filter_hybrid() -> bool:
+@pytest.mark.integration
+def test_tenant_filter_hybrid(require_qdrant=None, require_postgres=None) -> bool:
     """Tenant errado retorna lista vazia no canal híbrido."""
     print("  [*] test_tenant_filter_hybrid...")
-    ok_results  = hybrid_search("RAG", top_k=5, tenant_id="tenant-test")
-    bad_results = hybrid_search("RAG", top_k=5, tenant_id="tenant-INEXISTENTE")
+    ok_results  = hybrid_search("RAG", top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
+    bad_results = hybrid_search("RAG", top_k=5, tenant_id="tenant-INEXISTENTE", principals=ANY_PRINCIPAL)
 
     if not ok_results:
         print("  [FALHOU] tenant correto retornou 0 resultados")

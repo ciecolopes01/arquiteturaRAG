@@ -15,11 +15,10 @@ Rodar com:
 """
 
 import sys
-from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from src.generation.answer import answer, DEFAULT_MODEL
+from src.generation.answer import DEFAULT_MODEL, answer
 
 TENANT = "tenant-test"
 
@@ -88,8 +87,8 @@ def evaluate_answer(result, case: dict) -> dict:
 
 def test_evaluate_answer_heuristics():
     """Valida funções de avaliação de keywords e citações."""
-    from src.retrieval.hybrid import HybridResult
     from src.generation.answer import AnswerResult
+    from src.retrieval.hybrid import HybridResult
 
     case = {
         "expected_keywords": ["retrieval", "geração"],
@@ -120,9 +119,10 @@ def test_generation_simulated_pipeline(monkeypatch):
             source_uri="01_introducao_rag.txt",
         )
     ]
+    monkeypatch.setattr("src.generation.answer.settings.anthropic_api_key", "")
     monkeypatch.setattr("src.generation.answer.hybrid_search", lambda *args, **kwargs: fake_chunks)
 
-    res = answer("O que é RAG?", top_k=1, tenant_id=TENANT)
+    res = answer("O que é RAG?", top_k=1, tenant_id=TENANT, principals=["user:test"])
     assert res is not None
     assert len(res.chunks_used) == 1
     assert "01_introducao_rag.txt" in res.source_uris
@@ -133,6 +133,8 @@ def test_generation_simulated_pipeline(monkeypatch):
 def test_generation_golden_cases(monkeypatch):
     """Valida casos do golden dataset via pytest com mock retrieval para robustez em CI."""
     from src.retrieval.hybrid import HybridResult
+
+    monkeypatch.setattr("src.generation.answer.settings.anthropic_api_key", "")
 
     def fake_search(query, *args, **kwargs):
         # Localiza o caso correspondente e retorna chunk com o source esperado
@@ -151,7 +153,7 @@ def test_generation_golden_cases(monkeypatch):
     monkeypatch.setattr("src.generation.answer.hybrid_search", fake_search)
 
     for case in TEST_CASES:
-        res = answer(case["question"], top_k=1, tenant_id=TENANT)
+        res = answer(case["question"], top_k=1, tenant_id=TENANT, principals=["user:test"])
         eval_r = evaluate_answer(res, case)
         assert eval_r["source_retrieved"] is True, f"Fonte não recuperada para {case['id']}"
         assert eval_r["keyword_rate"] > 0, f"Nenhuma keyword encontrada para {case['id']}"
@@ -171,6 +173,7 @@ def main() -> None:
             case["question"],
             top_k=5,
             tenant_id=TENANT,
+            principals=["user:test"],
             stream=False,
         )
 
@@ -212,7 +215,7 @@ def main() -> None:
     # Critério de pronto: fonte correta recuperada em >= 4/5 casos
     ok = n_src >= 4
     if ok:
-        print(f"\nPasso 8 concluido — pipeline RAG end-to-end funcional.")
+        print("\nPasso 8 concluido — pipeline RAG end-to-end funcional.")
         sys.exit(0)
     else:
         print(f"\nPasso 8 incompleto — fonte correta em apenas {n_src}/5 queries.")

@@ -15,16 +15,13 @@ Rodar com: pytest tests/test_multi_vector.py -v
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, ".")
 
 from src.chunking.recursive import Chunk
-from src.evaluation.offline_eval import load_golden_dataset
 from src.representation.multi_vector import (
-    ChunkRepresentation,
     RepresentationType,
     ensure_multi_vector_collection,
     generate_representations,
@@ -33,6 +30,7 @@ from src.representation.multi_vector import (
     multi_vector_hybrid_search,
     search_multi_vector,
 )
+from src.retrieval.acl_filter import ANY_PRINCIPAL
 
 
 @pytest.fixture
@@ -69,7 +67,8 @@ def test_generate_representations(sample_chunk: Chunk) -> None:
         assert len(r.text) > 10
 
 
-def test_index_and_search_multi_vector(sample_chunk: Chunk) -> None:
+@pytest.mark.integration
+def test_index_and_search_multi_vector(sample_chunk: Chunk, require_qdrant) -> None:
     """Valida indexação no Qdrant e garantia de deduplicação na busca."""
     test_coll = "test_multivector_dedup"
     ensure_multi_vector_collection(recreate=True, collection_name=test_coll)
@@ -83,6 +82,7 @@ def test_index_and_search_multi_vector(sample_chunk: Chunk) -> None:
         query="qual a constante 60 usada na formula do RRF?",
         top_k=5,
         tenant_id="tenant-test",
+        principals=ANY_PRINCIPAL,
         collection_name=test_coll,
     )
 
@@ -92,7 +92,8 @@ def test_index_and_search_multi_vector(sample_chunk: Chunk) -> None:
     assert len(hit["matched_representations"]) >= 1
 
 
-def test_multi_vector_deduplication_multiple_chunks() -> None:
+@pytest.mark.integration
+def test_multi_vector_deduplication_multiple_chunks(require_qdrant) -> None:
     """Testa busca em lote com múltiplos chunks garantindo unicidade."""
     test_coll = "test_multivector_multi_chunks"
     ensure_multi_vector_collection(recreate=True, collection_name=test_coll)
@@ -116,6 +117,7 @@ def test_multi_vector_deduplication_multiple_chunks() -> None:
         query="termos técnicos específicos de arquitetura",
         top_k=5,
         tenant_id="tenant-test",
+        principals=ANY_PRINCIPAL,
         collection_name=test_coll,
     )
 
@@ -123,12 +125,14 @@ def test_multi_vector_deduplication_multiple_chunks() -> None:
     assert len(cids) == len(set(cids)), "Existem chunk_ids duplicados nos resultados de busca!"
 
 
-def test_multi_vector_hybrid_search(sample_chunk: Chunk) -> None:
+@pytest.mark.integration
+def test_multi_vector_hybrid_search(sample_chunk: Chunk, require_qdrant, require_postgres) -> None:
     """Verifica que a busca híbrida multi-vector retorna HybridResults válidos e únicos."""
     results = multi_vector_hybrid_search(
         query="O que é RAG?",
         top_k=5,
         tenant_id="tenant-test",
+        principals=ANY_PRINCIPAL,
     )
     assert len(results) <= 5
     cids = [r.chunk_id for r in results]

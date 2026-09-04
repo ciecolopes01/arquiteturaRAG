@@ -14,15 +14,14 @@ Rodar com: pytest tests/test_query_router.py -v
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, ".")
 
 from src.evaluation.offline_eval import load_golden_dataset
+from src.retrieval.acl_filter import ANY_PRINCIPAL
 from src.retrieval.query_router import (
-    DEFAULT_BOOSTS,
     MIN_WEIGHT_FLOOR,
     QueryIntent,
     classify_intent,
@@ -90,13 +89,14 @@ def test_weighted_rrf_unification() -> None:
     assert fused[0].graph_rank == 1
 
 
-def test_routed_hybrid_search_end_to_end() -> None:
-
+@pytest.mark.integration
+def test_routed_hybrid_search_end_to_end(require_qdrant, require_postgres) -> None:
     """Executa busca roteada ponta a ponta e verifica retorno de intenção e resultados."""
     results, intent, weights = routed_hybrid_search(
         query="Em que página aparece o fluxo de indexação de imagens?",
         top_k=3,
         tenant_id="tenant-test",
+        principals=ANY_PRINCIPAL,
     )
     assert intent == QueryIntent.MULTIMODAL
     assert weights["dense"] > weights["bm25"]
@@ -104,7 +104,8 @@ def test_routed_hybrid_search_end_to_end() -> None:
     assert results[0].chunk_id is not None
 
 
-def test_evaluate_golden_dataset_with_router() -> None:
+@pytest.mark.integration
+def test_evaluate_golden_dataset_with_router(require_qdrant, require_postgres) -> None:
     """Avalia o golden dataset usando routed_hybrid_search."""
     dataset = load_golden_dataset()
     sample = [d for d in dataset if d["id"] in ["gd-44", "gd-45", "gd-46", "gd-47", "gd-48"]]
@@ -114,7 +115,7 @@ def test_evaluate_golden_dataset_with_router() -> None:
     for item in sample:
         q = item["question"]
         expected = set(item["expected_chunk_ids"])
-        results, _, _ = routed_hybrid_search(q, top_k=5, tenant_id="tenant-test")
+        results, _, _ = routed_hybrid_search(q, top_k=5, tenant_id="tenant-test", principals=ANY_PRINCIPAL)
         retrieved_ids = {r.chunk_id for r in results}
         if expected & retrieved_ids:
             hits += 1

@@ -41,10 +41,10 @@ from pathlib import Path
 from typing import List, Optional
 
 from src.chunking.recursive import chunk_recursive
-from src.embedding.embed_index import embed_and_index
 from src.embedding.embed_index import delete_document as _qdrant_delete_document
+from src.embedding.embed_index import embed_and_index
 from src.parsing.simple_parsers import parse_file
-from src.retrieval.bm25_index import create_bm25_table, index_bm25, _get_conn
+from src.retrieval.bm25_index import _get_conn, index_bm25
 from src.retrieval.bm25_index import delete_document as _bm25_delete_document
 
 # Namespace fixo — garante que uuid5(NAMESPACE, source_uri) seja o mesmo

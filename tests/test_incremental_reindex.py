@@ -23,11 +23,14 @@ from pathlib import Path
 
 sys.path.insert(0, ".")
 
+import pytest
+
 from src.ingestion.incremental_reindex import (
+    _get_registry_entry,
     incremental_reindex_file,
     stable_document_id,
-    _get_registry_entry,
 )
+from src.retrieval.acl_filter import ANY_PRINCIPAL
 from src.retrieval.bm25_index import _get_conn
 from src.retrieval.hybrid import hybrid_search
 
@@ -72,8 +75,8 @@ def setup() -> tuple[Path, Path]:
     return path_a, path_b
 
 
-def test_first_index_reports_indexed(path_a: Path, path_b: Path) -> bool:
-    print("  [*] test_first_index_reports_indexed...")
+def _run_first_index_reports_indexed(path_a: Path, path_b: Path) -> bool:
+    print("  [*] _run_first_index_reports_indexed...")
     r_a = incremental_reindex_file(path_a, tenant_id=TENANT)
     r_b = incremental_reindex_file(path_b, tenant_id=TENANT)
     ok = r_a["status"] == "indexed" and r_b["status"] == "indexed" and r_a["chunks_added"] > 0 and r_b["chunks_added"] > 0
@@ -81,8 +84,8 @@ def test_first_index_reports_indexed(path_a: Path, path_b: Path) -> bool:
     return ok
 
 
-def test_rerun_unchanged_touches_nothing(path_a: Path, path_b: Path) -> bool:
-    print("  [*] test_rerun_unchanged_touches_nothing...")
+def _run_rerun_unchanged_touches_nothing(path_a: Path, path_b: Path) -> bool:
+    print("  [*] _run_rerun_unchanged_touches_nothing...")
     r_a = incremental_reindex_file(path_a, tenant_id=TENANT)
     r_b = incremental_reindex_file(path_b, tenant_id=TENANT)
     ok = (
@@ -93,8 +96,8 @@ def test_rerun_unchanged_touches_nothing(path_a: Path, path_b: Path) -> bool:
     return ok
 
 
-def test_edit_a_only_touches_a(path_a: Path, path_b: Path) -> bool:
-    print("  [*] test_edit_a_only_touches_a...")
+def _run_edit_a_only_touches_a(path_a: Path, path_b: Path) -> bool:
+    print("  [*] _run_edit_a_only_touches_a...")
 
     doc_id_b = stable_document_id(str(path_b))
     chunks_b_before = _chunk_ids_for_document(doc_id_b)
@@ -112,8 +115,8 @@ def test_edit_a_only_touches_a(path_a: Path, path_b: Path) -> bool:
     return ok_a_reindexed and ok_b_untouched
 
 
-def test_registry_reflects_new_hash(path_a: Path) -> bool:
-    print("  [*] test_registry_reflects_new_hash...")
+def _run_registry_reflects_new_hash(path_a: Path) -> bool:
+    print("  [*] _run_registry_reflects_new_hash...")
     from src.parsing.simple_parsers import parse_file
     doc = parse_file(path_a, tenant_id=TENANT, source_uri=str(path_a))
     entry = _get_registry_entry(str(path_a))
@@ -122,10 +125,10 @@ def test_registry_reflects_new_hash(path_a: Path) -> bool:
     return ok
 
 
-def test_search_finds_new_content_not_old(path_a: Path) -> bool:
-    print("  [*] test_search_finds_new_content_not_old...")
-    results_new = hybrid_search("alpha-EDITADO-7c02", top_k=5, tenant_id=TENANT)
-    results_old = hybrid_search("alpha-9f31", top_k=5, tenant_id=TENANT)
+def _run_search_finds_new_content_not_old(path_a: Path) -> bool:
+    print("  [*] _run_search_finds_new_content_not_old...")
+    results_new = hybrid_search("alpha-EDITADO-7c02", top_k=5, tenant_id=TENANT, principals=ANY_PRINCIPAL)
+    results_old = hybrid_search("alpha-9f31", top_k=5, tenant_id=TENANT, principals=ANY_PRINCIPAL)
 
     found_new = any("alpha-EDITADO-7c02" in r.content for r in results_new)
     # conteúdo antigo não pode mais aparecer (foi de fato invalidado)
@@ -134,6 +137,19 @@ def test_search_finds_new_content_not_old(path_a: Path) -> bool:
     ok = found_new and not found_old
     print(f"  [{'OK' if ok else 'FALHOU'}] conteúdo novo encontrado={found_new} | conteúdo antigo (não editado) ainda presente={found_old}")
     return ok
+
+
+@pytest.mark.integration
+def test_incremental_reindex_pipeline(require_qdrant, require_postgres) -> None:
+    path_a, path_b = setup()
+    try:
+        assert _run_first_index_reports_indexed(path_a, path_b)
+        assert _run_rerun_unchanged_touches_nothing(path_a, path_b)
+        assert _run_edit_a_only_touches_a(path_a, path_b)
+        assert _run_registry_reflects_new_hash(path_a)
+        assert _run_search_finds_new_content_not_old(path_a)
+    finally:
+        teardown(path_a, path_b)
 
 
 def teardown(path_a: Path, path_b: Path) -> None:
@@ -173,15 +189,15 @@ def main() -> None:
 
     tests_results = {}
     try:
-        tests_results["test_first_index_reports_indexed"] = test_first_index_reports_indexed(path_a, path_b)
+        tests_results["test_first_index_reports_indexed"] = _run_first_index_reports_indexed(path_a, path_b)
         print()
-        tests_results["test_rerun_unchanged_touches_nothing"] = test_rerun_unchanged_touches_nothing(path_a, path_b)
+        tests_results["test_rerun_unchanged_touches_nothing"] = _run_rerun_unchanged_touches_nothing(path_a, path_b)
         print()
-        tests_results["test_edit_a_only_touches_a"] = test_edit_a_only_touches_a(path_a, path_b)
+        tests_results["test_edit_a_only_touches_a"] = _run_edit_a_only_touches_a(path_a, path_b)
         print()
-        tests_results["test_registry_reflects_new_hash"] = test_registry_reflects_new_hash(path_a)
+        tests_results["test_registry_reflects_new_hash"] = _run_registry_reflects_new_hash(path_a)
         print()
-        tests_results["test_search_finds_new_content_not_old"] = test_search_finds_new_content_not_old(path_a)
+        tests_results["test_search_finds_new_content_not_old"] = _run_search_finds_new_content_not_old(path_a)
         print()
     finally:
         teardown(path_a, path_b)

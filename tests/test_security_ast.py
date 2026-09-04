@@ -6,7 +6,9 @@ do projeto declarem explicitamente 'tenant_id' e 'principals' em suas assinatura
 
 import ast
 from pathlib import Path
+
 import pytest
+
 from src.retrieval.acl_filter import ANY_PRINCIPAL, resolve_principals
 
 # Mapeamento de arquivo relativo -> funções públicas que devem exigir tenant_id e principals

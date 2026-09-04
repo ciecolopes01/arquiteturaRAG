@@ -24,7 +24,7 @@ import re
 from pathlib import Path
 from typing import List, Optional
 
-from src.parsing.canonical_model import Document, Image, Paragraph, Section, Table
+from src.parsing.canonical_model import Document, Paragraph, Section, Table
 from src.parsing.image_parser import extract_images_from_docx
 from src.parsing.table_extractor import build_table_content
 

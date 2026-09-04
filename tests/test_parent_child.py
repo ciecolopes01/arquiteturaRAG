@@ -13,19 +13,14 @@ Valida:
 
 import sys
 import unittest
-from pathlib import Path
 
 sys.path.insert(0, ".")
 
 from src.chunking.parent_child import (
-    ParentChildResult,
     chunk_parent_child,
-    _build_parent_chunks,
-    _build_child_chunks_for_parent,
 )
-from src.chunking.recursive import Chunk
 from src.generation.answer import _build_context_block, expand_parent_context
-from src.parsing.canonical_model import Document, ElementType, Paragraph, Section, Table
+from src.parsing.canonical_model import Document, Paragraph, Section, Table
 from src.retrieval.hybrid import HybridResult
 
 

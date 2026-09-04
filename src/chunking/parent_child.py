@@ -20,13 +20,11 @@ Vantagem arquitetural:
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from src.chunking.recursive import (
     Chunk,
-    WORDS_PER_TOKEN,
     _get_overlap_prefix,
     _max_words,
     _split_text,
@@ -196,7 +194,7 @@ def _build_parent_chunks(
             assert isinstance(element, Paragraph)
             sec_ctx = f"[Seção: {current_section_title}]\n" if current_section_title and not current_buffer else ""
             para_text = sec_ctx + element.content.strip()
-            
+
             # Testa se cabe no chunk pai atual
             tentative_words = len((" ".join(current_buffer) + " " + para_text).split())
             if tentative_words > parent_max_words and current_buffer:
