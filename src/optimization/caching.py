@@ -122,9 +122,10 @@ class CacheManager:
             except Exception as e:
                 logger.warning("Falha ao limpar Redis (%s)", e)
 
-    def _hash_key(self, prefix: str, key_data: str) -> str:
+    def _hash_key(self, prefix: str, key_data: str, preserve_case: bool = False) -> str:
         """Gera chave consistente usando hash SHA-256."""
-        h = hashlib.sha256(key_data.strip().lower().encode("utf-8")).hexdigest()[:32]
+        norm_data = key_data.strip() if preserve_case else key_data.strip().lower()
+        h = hashlib.sha256(norm_data.encode("utf-8")).hexdigest()[:32]
         return f"{prefix}:{h}"
 
     def _response_key(
@@ -201,7 +202,7 @@ class CacheManager:
         if not settings.enable_cache:
             return None
 
-        cache_key = self._hash_key("rag:emb", f"{model_name}:{query}")
+        cache_key = self._hash_key("rag:emb", f"{model_name}:{query}", preserve_case=True)
         raw = None
 
         if self.redis_client:
@@ -234,7 +235,7 @@ class CacheManager:
             return
 
         ttl = ttl_seconds or settings.cache_embedding_ttl
-        cache_key = self._hash_key("rag:emb", f"{model_name}:{query}")
+        cache_key = self._hash_key("rag:emb", f"{model_name}:{query}", preserve_case=True)
         serialized = json.dumps(vector)
 
         if self.redis_client:

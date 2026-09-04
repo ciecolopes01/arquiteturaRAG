@@ -6,6 +6,8 @@ alguma variável obrigatória, falha aqui, e não no meio de um pipeline
 de ingestão em produção.
 """
 
+from typing import Optional
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,6 +28,7 @@ class Settings(BaseSettings):
     # Embedding local (BGE-M3)
     embedding_device: str = "cpu"          # "cpu" | "cuda"
     embedding_model: str = "BAAI/bge-m3"
+    embedding_dimension: Optional[int] = None  # None = inferido dinamicamente do modelo
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
 
     # Qdrant
@@ -63,6 +66,10 @@ class Settings(BaseSettings):
     enable_cache: bool = True
     cache_response_ttl: int = 3600
     cache_embedding_ttl: int = 86400
+
+    # Self-RAG Thresholds (Passo 29)
+    self_rag_confidence_threshold: float = 0.0  # Logit >= 0.0 (~50% sigmoid) -> SUFFICIENT
+    self_rag_retry_threshold: float = -2.5       # Logit >= -2.5 (~7.5% sigmoid) -> RETRY
 
     @model_validator(mode="after")
     def validate_production_credentials(self) -> "Settings":

@@ -96,15 +96,20 @@ _logger = _setup_logger()
 
 
 # ---------------------------------------------------------------------------
-# Estimativa de custo (preços Anthropic, dez/2024)
+# Estimativa de custo (preços Anthropic & OpenAI, calibrados em 2025/2026)
 # ---------------------------------------------------------------------------
 
 # USD por 1M tokens (entrada / saída)
 _COST_TABLE: Dict[str, Dict[str, float]] = {
-    "claude-3-5-haiku-20241022":   {"input": 0.80,  "output": 4.00},
+    "claude-3-7-sonnet-20250219":  {"input": 3.00,  "output": 15.00},
     "claude-3-5-sonnet-20241022":  {"input": 3.00,  "output": 15.00},
-    "claude-3-opus-20240229":      {"input": 15.00, "output": 75.00},
+    "claude-3-5-sonnet-latest":    {"input": 3.00,  "output": 15.00},
+    "claude-3-5-haiku-20241022":   {"input": 0.80,  "output": 4.00},
+    "claude-3-5-haiku-latest":     {"input": 0.80,  "output": 4.00},
     "claude-haiku-3-5":            {"input": 0.80,  "output": 4.00},
+    "claude-3-opus-20240229":      {"input": 15.00, "output": 75.00},
+    "gpt-4o":                      {"input": 2.50,  "output": 10.00},
+    "gpt-4o-mini":                 {"input": 0.15,  "output": 0.60},
     # fallback genérico
     "__default__":                 {"input": 1.00,  "output": 5.00},
 }

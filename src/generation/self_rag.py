@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, List, Optional, Tuple
 
+from src.config import settings
 from src.generation.answer import answer
 from src.retrieval.hybrid import HybridResult
 from src.retrieval.query_router import routed_hybrid_search
@@ -46,12 +47,25 @@ class SelfRAGDecision(str, Enum):
 
 
 # ---------------------------------------------------------------------------
-# Thresholds de Confiança
+# Calibração e Thresholds de Confiança
 # ---------------------------------------------------------------------------
-# BGE-reranker produz scores logit não-normalizados (tipicamente > 0 para relevantes,
-# e < -2.0 para irrelevantes).
-CONFIDENCE_THRESHOLD = 0.0    # Score mínimo no top-1 para considerar suficiente
-RETRY_THRESHOLD = -2.5        # Abaixo disso é irrelevante; entre -2.5 e 0.0 aciona retry
+# Fundamentação matemática e empírica:
+# O modelo BAAI/bge-reranker-v2-m3 produz scores logit não-normalizados derivados
+# de cross-entropy loss contra pares negativos. A probabilidade calibrada de relevância
+# é dada pela função logística: P(relevante | query, chunk) = 1 / (1 + exp(-score)).
+#
+# - CONFIDENCE_THRESHOLD = 0.0: Corresponde a P = 0.50 (odds ratio 1:1). Um score >= 0
+#   indica probabilidade >= 50% de que o documento responde assertivamente à pergunta,
+#   justificando o prosseguimento da geração (SUFFICIENT).
+# - RETRY_THRESHOLD = -2.5: Corresponde a P = 1 / (1 + exp(2.5)) ≈ 0.075 (7.5%).
+#   Scores abaixo de -2.5 indicam irrelevância quase certa (<7.5%), justificando recusa
+#   imediata (INSUFFICIENT) sem gastar tokens com o LLM e prevenindo alucinações.
+# - Faixa limítrofe [-2.5, 0.0): Confiança moderada (7.5% a 50%), onde uma reescrita/expansão
+#   de query pode recuperar documentos mais assertivos (RETRY_RETRIEVAL).
+#
+# Podem ser configurados via SELF_RAG_CONFIDENCE_THRESHOLD e SELF_RAG_RETRY_THRESHOLD.
+CONFIDENCE_THRESHOLD = getattr(settings, "self_rag_confidence_threshold", 0.0)
+RETRY_THRESHOLD = getattr(settings, "self_rag_retry_threshold", -2.5)
 
 REFUSAL_MESSAGE = "Não encontrei informações suficientes nos documentos fornecidos para responder a essa pergunta."
 

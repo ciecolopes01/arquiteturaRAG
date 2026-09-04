@@ -24,10 +24,16 @@ Dependências: FlagEmbedding>=1.2.10 (já instalado no Passo 4), torch
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from dataclasses import dataclass
 from typing import List, Optional
+
+from src.config import settings
+from src.retrieval.hybrid import HybridResult
+
+logger = logging.getLogger("rag.reranker")
 
 # Observabilidade (Passo 14)
 try:
@@ -35,9 +41,6 @@ try:
 except ImportError:
     def get_current_trace():
         return None
-
-from src.config import settings
-from src.retrieval.hybrid import HybridResult
 
 # ---------------------------------------------------------------------------
 # Singleton do modelo (thread-safe)
@@ -67,19 +70,20 @@ def _get_reranker():
             "Execute: pip install FlagEmbedding torch"
         )
 
-    print(
-        f"[Reranker] Carregando {settings.reranker_model} "
-        f"em {settings.embedding_device}... (primeira vez pode demorar)"
-    )
-    t0 = time.time()
-    _reranker = FlagReranker(
-        settings.reranker_model,
-        use_fp16=(settings.embedding_device != "cpu"),
-        device=settings.embedding_device,
-    )
-    _reranker_model_name = settings.reranker_model
-    print(f"[Reranker] Modelo carregado em {time.time() - t0:.1f}s")
-    return _reranker
+        logger.info(
+            "Carregando %s em %s... (primeira vez pode demorar)",
+            settings.reranker_model,
+            settings.embedding_device,
+        )
+        t0 = time.time()
+        _reranker = FlagReranker(
+            settings.reranker_model,
+            use_fp16=(settings.embedding_device != "cpu"),
+            device=settings.embedding_device,
+        )
+        _reranker_model_name = settings.reranker_model
+        logger.info("Modelo %s carregado em %.1fs", settings.reranker_model, time.time() - t0)
+        return _reranker
 
 
 # ---------------------------------------------------------------------------
@@ -182,9 +186,11 @@ def rerank(
     if isinstance(scores, float):
         scores = [scores]
 
-    print(
-        f"[Reranker] {len(chunks)} chunks rerankeados em {elapsed:.2f}s "
-        f"({elapsed/max(len(chunks),1)*1000:.0f}ms/chunk)"
+    logger.debug(
+        "%d chunks rerankeados em %.2fs (%.0fms/chunk)",
+        len(chunks),
+        elapsed,
+        elapsed / max(len(chunks), 1) * 1000,
     )
 
     # Registra no trace ativo (Passo 14)

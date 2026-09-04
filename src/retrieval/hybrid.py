@@ -27,9 +27,16 @@ HybridResult é um dataclass simples com:
 
 from __future__ import annotations
 
+import concurrent.futures
+import logging
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
+
+from src.embedding.embed_index import search_dense
+from src.retrieval.bm25_index import search_bm25
+
+logger = logging.getLogger("rag.hybrid")
 
 # Observabilidade (Passo 14)
 try:
@@ -37,9 +44,6 @@ try:
 except ImportError:
     def get_current_trace():
         return None
-
-from src.embedding.embed_index import search_dense
-from src.retrieval.bm25_index import search_bm25
 
 # ---------------------------------------------------------------------------
 # Constantes RRF
@@ -209,13 +213,37 @@ def hybrid_search(
     from src.retrieval.acl_filter import resolve_principals  # noqa: PLC0415
     principals = resolve_principals(principals, tenant_id=tenant_id)
 
-    # Busca em paralelo (sequencial nesta fase — paralelismo real entra em V1.1)
-    dense_results = search_dense(
-        query, top_k=dense_candidates, tenant_id=tenant_id, principals=principals,
-    )
-    bm25_results = search_bm25(
-        query, top_k=bm25_candidates, tenant_id=tenant_id, principals=principals,
-    )
+    # Busca em paralelo via ThreadPoolExecutor (Passo 32 / Sprint 3)
+    dense_results: List[dict] = []
+    bm25_results: List[dict] = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        f_dense = executor.submit(
+            search_dense,
+            query,
+            top_k=dense_candidates,
+            tenant_id=tenant_id,
+            principals=principals,
+        )
+        f_bm25 = executor.submit(
+            search_bm25,
+            query,
+            top_k=bm25_candidates,
+            tenant_id=tenant_id,
+            principals=principals,
+        )
+
+        try:
+            dense_results = f_dense.result()
+        except Exception as e:
+            logger.warning("Falha na busca densa (%s); prosseguindo com demais canais", e)
+            dense_results = []
+
+        try:
+            bm25_results = f_bm25.result()
+        except Exception as e:
+            logger.warning("Falha na busca BM25 (%s); prosseguindo com demais canais", e)
+            bm25_results = []
 
     ranked_lists = {}
     if dense_results:

@@ -21,20 +21,10 @@ Função de busca:  search_dense(query, top_k, tenant_id) -> list[dict]
 
 from __future__ import annotations
 
+import logging
+import threading
 import time
 from typing import List, Optional
-
-# Observabilidade (Passo 14) — import condicional para não quebrar
-# módulos que rodam sem o pipeline de trace ativo.
-try:
-    from src.observability.instrumentation import get_current_trace
-    _OBS_AVAILABLE = True
-except ImportError:
-    _OBS_AVAILABLE = False
-    def get_current_trace():
-        return None
-
-import threading
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -50,6 +40,18 @@ from qdrant_client.models import (
 from src.chunking.recursive import Chunk
 from src.config import settings
 from src.embedding.model import embed_query, embed_texts, embedding_dimension
+
+logger = logging.getLogger("rag.embedding.index")
+
+# Observabilidade (Passo 14) — import condicional para não quebrar
+# módulos que rodam sem o pipeline de trace ativo.
+try:
+    from src.observability.instrumentation import get_current_trace
+    _OBS_AVAILABLE = True
+except ImportError:
+    _OBS_AVAILABLE = False
+    def get_current_trace():
+        return None
 
 # ---------------------------------------------------------------------------
 # Cliente Qdrant (singleton de módulo thread-safe)
@@ -87,18 +89,18 @@ def ensure_collection(recreate: bool = False) -> None:
 
     if collection in existing:
         if recreate:
-            print(f"[Qdrant] Recriando coleção '{collection}'...")
+            logger.info("Recriando coleção Qdrant '%s'...", collection)
             client.delete_collection(collection)
         else:
-            print(f"[Qdrant] Coleção '{collection}' já existe — mantendo.")
+            logger.info("Coleção Qdrant '%s' já existe — mantendo.", collection)
             return
 
-    print(f"[Qdrant] Criando coleção '{collection}' (dim={dim}, cosine)...")
+    logger.info("Criando coleção Qdrant '%s' (dim=%s, cosine)...", collection, dim)
     client.create_collection(
         collection_name=collection,
         vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
     )
-    print("[Qdrant] Coleção criada.")
+    logger.info("Coleção Qdrant '%s' criada com sucesso.", collection)
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +136,7 @@ def embed_and_index(
     collection = settings.qdrant_collection
     model_version = settings.embedding_model
 
-    print(f"\n[embed_and_index] Indexando {len(chunks)} chunks em '{collection}'...")
+    logger.info("Indexando %d chunks em '%s'...", len(chunks), collection)
     t_total = time.time()
 
     # Processa em batches para não sobrecarregar memória
@@ -176,7 +178,7 @@ def embed_and_index(
         # Upsert em lote do batch para não sobrecarregar memória em corpora volumosos
         client.upsert(collection_name=collection, points=batch_points)
         total_upserted += len(batch_points)
-        print(f"  batch {i // batch_size + 1}: {len(batch)} chunks embedados e indexados")
+        logger.debug("Batch %d: %d chunks embedados e indexados", i // batch_size + 1, len(batch))
 
     total_time = time.time() - t_total
     stats = {
@@ -187,9 +189,12 @@ def embed_and_index(
         "collection": collection,
         "device": settings.embedding_device,
     }
-    print(
-        f"[embed_and_index] Concluído: {len(chunks)} chunks em {total_time:.1f}s "
-        f"({stats['ms_per_chunk']}ms/chunk) — device={settings.embedding_device}"
+    logger.info(
+        "Indexação concluída: %d chunks em %.1fs (%.1fms/chunk) — device=%s",
+        len(chunks),
+        total_time,
+        stats["ms_per_chunk"],
+        settings.embedding_device,
     )
     return stats
 

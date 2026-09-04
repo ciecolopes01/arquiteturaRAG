@@ -32,17 +32,11 @@ Funções:
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from contextlib import contextmanager
 from typing import Any, List, Optional
-
-# Observabilidade (Passo 14)
-try:
-    from src.observability.instrumentation import get_current_trace
-except ImportError:
-    def get_current_trace():
-        return None
 
 import psycopg2
 import psycopg2.extras
@@ -51,6 +45,15 @@ from psycopg2.pool import ThreadedConnectionPool
 
 from src.chunking.recursive import Chunk
 from src.config import settings
+
+logger = logging.getLogger("rag.bm25")
+
+# Observabilidade (Passo 14)
+try:
+    from src.observability.instrumentation import get_current_trace
+except ImportError:
+    def get_current_trace():
+        return None
 
 # ---------------------------------------------------------------------------
 # Conexão: ThreadedConnectionPool para concorrência segura (Sprint 2)
@@ -228,7 +231,7 @@ def create_bm25_table() -> None:
         with conn.cursor() as cur:
             cur.execute(CREATE_TABLE_SQL)
         conn.commit()
-    print("[BM25] Tabela e índices criados (ou já existiam).")
+    logger.info("Tabela e índices BM25 criados (ou já existiam).")
 
 
 def clear_bm25_table() -> None:
@@ -237,7 +240,7 @@ def clear_bm25_table() -> None:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM bm25_chunks;")
         conn.commit()
-    print("[BM25] Tabela limpa.")
+    logger.info("Tabela BM25 limpa.")
 
 
 def index_bm25(chunks: List[Chunk], clear_first: bool = False) -> int:
@@ -277,7 +280,7 @@ def index_bm25(chunks: List[Chunk], clear_first: bool = False) -> int:
             psycopg2.extras.execute_batch(cur, UPSERT_SQL, records, page_size=50)
         conn.commit()
 
-    print(f"[BM25] {len(chunks)} chunk(s) indexado(s) no Postgres.")
+    logger.info("%d chunk(s) indexado(s) no Postgres (BM25).", len(chunks))
     return len(chunks)
 
 

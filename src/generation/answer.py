@@ -30,6 +30,7 @@ Modo degradado (sem ANTHROPIC_API_KEY):
 from __future__ import annotations
 
 import logging
+import math
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional
@@ -96,6 +97,19 @@ def _deserialize_chunk(d: Dict[str, Any]) -> HybridResult:
         parent_chunk_id=d.get("parent_chunk_id"),
         parent_content=d.get("parent_content"),
     )
+
+
+def estimate_tokens(text: str) -> int:
+    """
+    Estima a contagem de tokens com maior fidelidade para texto multilíngue e português.
+    Em português, 1 palavra equivale tipicamente a ~1.3-1.4 tokens (ou ~3.8 caracteres/token).
+    """
+    if not text:
+        return 0
+    words = len(text.split())
+    by_chars = math.ceil(len(text) / 3.8)
+    by_words = math.ceil(words * 1.35)
+    return max(1, (by_chars + by_words) // 2) if words > 0 else 0
 
 
 # ---------------------------------------------------------------------------
@@ -485,7 +499,7 @@ def _answer_impl(
         from src.optimization.caching import cache
         cached = cache.get_response(query=query, tenant_id=tenant_id or "", principals=principals)
         if cached is not None:
-            print(f"[answer] Cache HIT para query: '{query[:40]}...'")
+            logger.info("Cache HIT para query: '%s...'", query[:40])
             chunks_raw = cached.get("chunks_used", [])
             restored_chunks = [_deserialize_chunk(c) for c in chunks_raw] if chunks_raw else []
             return AnswerResult(
@@ -504,7 +518,7 @@ def _answer_impl(
     if prefetched_chunks is not None:
         chunks = prefetched_chunks
         retrieval_ms = 0.0
-        print(f"[answer] Usando {len(chunks)} chunks pré-computados (Self-RAG)")
+        logger.info("Usando %d chunks pré-computados (Self-RAG)", len(chunks))
     else:
         chunks = hybrid_search(
             query,
@@ -515,7 +529,7 @@ def _answer_impl(
             bm25_candidates=bm25_candidates,
         )
         retrieval_ms = (time.time() - t_retrieval) * 1000
-        print(f"[answer] Retrieval: {len(chunks)} chunks em {retrieval_ms:.0f}ms")
+        logger.info("Retrieval: %d chunks em %.0fms", len(chunks), retrieval_ms)
 
     if not chunks:
         return AnswerResult(
@@ -530,20 +544,26 @@ def _answer_impl(
         before_count = len(chunks)
         chunks = expand_parent_context(chunks)
         if any(c.parent_chunk_id for c in chunks):
-            print(f"[answer] Context Engine: {before_count} chunks expandidos/deduplicados para {len(chunks)} contextos pais")
+            logger.info(
+                "Context Engine: %d chunks expandidos/deduplicados para %d contextos pais",
+                before_count,
+                len(chunks),
+            )
 
     # --- 2. Geração ---
     if not settings.anthropic_api_key:
-        print("[answer] ANTHROPIC_API_KEY não configurada — modo simulado")
+        logger.info("ANTHROPIC_API_KEY não configurada — modo simulado")
         result = _simulated_answer(query, chunks)
         result.latency_ms = retrieval_ms
     else:
         result = _call_claude(
             query, chunks, model=model, stream=stream, max_tokens=max_output_tokens
         )
-        print(
-            f"[answer] Geração: {result.latency_ms:.0f}ms | "
-            f"{result.input_tokens}→{result.output_tokens} tokens"
+        logger.info(
+            "Geração: %.0fms | %d→%d tokens",
+            result.latency_ms,
+            result.input_tokens,
+            result.output_tokens,
         )
 
     # Salva no cache de respostas (Passo 32, isolado por tenant e ACL)
@@ -644,8 +664,8 @@ def answer_stream(
         full_answer = "".join(parts)
         if completed and full_answer:
             latency_ms = (time.time() - t0) * 1000
-            in_tokens = sum(len(c.content.split()) for c in chunks)
-            out_tokens = max(1, len(full_answer.split()))
+            in_tokens = sum(estimate_tokens(c.content) for c in chunks)
+            out_tokens = max(1, estimate_tokens(full_answer))
             record_generation_cost(
                 model=model,
                 input_tokens=in_tokens,

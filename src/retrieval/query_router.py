@@ -17,6 +17,7 @@ Fórmula RRF Ponderada (§5 da arquitetura revisada):
 
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import re
 import time
@@ -208,35 +209,60 @@ def routed_hybrid_search(
     intent = classify_intent(query)
     weights = get_channel_weights(intent, boosts=boosts)
 
-    dense_hits = search_dense(
-        query=query,
-        top_k=candidate_pool_size,
-        tenant_id=tenant_id,
-        principals=principals,
-    )
-    bm25_hits = search_bm25(
-        query=query,
-        top_k=candidate_pool_size,
-        tenant_id=tenant_id,
-        principals=principals,
-    )
+    dense_hits: List[dict] = []
+    bm25_hits: List[dict] = []
+    graph_hits: List[dict] = []
 
-    graph_hits = []
-    if use_graph:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        f_dense = executor.submit(
+            search_dense,
+            query=query,
+            top_k=candidate_pool_size,
+            tenant_id=tenant_id,
+            principals=principals,
+        )
+        f_bm25 = executor.submit(
+            search_bm25,
+            query=query,
+            top_k=candidate_pool_size,
+            tenant_id=tenant_id,
+            principals=principals,
+        )
+        f_graph = None
+        if use_graph:
+            try:
+                from src.retrieval.graph_search import search_graph
+                f_graph = executor.submit(
+                    search_graph,
+                    query=query,
+                    top_k=candidate_pool_size,
+                    tenant_id=tenant_id,
+                    principals=principals,
+                )
+            except Exception as e:
+                logger.warning("Falha ao agendar busca em grafo (%s)", e)
+
         try:
-            from src.retrieval.graph_search import search_graph
-            graph_hits = search_graph(
-                query=query,
-                top_k=candidate_pool_size,
-                tenant_id=tenant_id,
-                principals=principals,
-            )
+            dense_hits = f_dense.result()
         except Exception as e:
-            logger.warning("Busca em grafo falhou (%s); prosseguindo com dense + bm25", e)
-            graph_hits = []
-            trace = get_current_trace()
-            if trace:
-                trace.metadata["graph_channel_degraded"] = True
+            logger.warning("Busca densa falhou (%s); prosseguindo com demais canais", e)
+            dense_hits = []
+
+        try:
+            bm25_hits = f_bm25.result()
+        except Exception as e:
+            logger.warning("Busca BM25 falhou (%s); prosseguindo com demais canais", e)
+            bm25_hits = []
+
+        if f_graph is not None:
+            try:
+                graph_hits = f_graph.result()
+            except Exception as e:
+                logger.warning("Busca em grafo falhou (%s); prosseguindo com dense + bm25", e)
+                graph_hits = []
+                trace = get_current_trace()
+                if trace:
+                    trace.metadata["graph_channel_degraded"] = True
 
 
     fused = weighted_rrf(

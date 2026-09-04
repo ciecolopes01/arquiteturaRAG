@@ -13,9 +13,12 @@ Dependências: FlagEmbedding>=1.2.10, torch>=2.0.0
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from typing import List
+
+logger = logging.getLogger("rag.embedding")
 
 # Importação lazy para não quebrar outros módulos se FlagEmbedding não
 # estiver instalado ainda.
@@ -39,30 +42,31 @@ def _get_model():
         if _model is not None and _model_name == settings.embedding_model:
             return _model
 
-    try:
-        from FlagEmbedding import BGEM3FlagModel
-    except ImportError:
-        raise ImportError(
-            "FlagEmbedding não instalado. Execute:\n"
-            "  pip install FlagEmbedding torch\n"
-            "O modelo BAAI/bge-m3 será baixado na primeira execução (~2GB)."
-        )
+        try:
+            from FlagEmbedding import BGEM3FlagModel
+        except ImportError:
+            raise ImportError(
+                "FlagEmbedding não instalado. Execute:\n"
+                "  pip install FlagEmbedding torch\n"
+                "O modelo BAAI/bge-m3 será baixado na primeira execução (~2GB)."
+            )
 
-    print(
-        f"[EmbeddingModel] Carregando {settings.embedding_model} "
-        f"em {settings.embedding_device}... (primeira vez pode demorar)"
-    )
-    t0 = time.time()
-    _model = BGEM3FlagModel(
-        settings.embedding_model,
-        use_fp16=(settings.embedding_device != "cpu"),  # fp16 só faz sentido em GPU
-        device=settings.embedding_device,
-    )
-    _model_name = settings.embedding_model
-    _device = settings.embedding_device
-    elapsed = time.time() - t0
-    print(f"[EmbeddingModel] Modelo carregado em {elapsed:.1f}s")
-    return _model
+        logger.info(
+            "Carregando %s em %s... (primeira vez pode demorar)",
+            settings.embedding_model,
+            settings.embedding_device,
+        )
+        t0 = time.time()
+        _model = BGEM3FlagModel(
+            settings.embedding_model,
+            use_fp16=(settings.embedding_device != "cpu"),  # fp16 só faz sentido em GPU
+            device=settings.embedding_device,
+        )
+        _model_name = settings.embedding_model
+        _device = settings.embedding_device
+        elapsed = time.time() - t0
+        logger.info("Modelo %s carregado em %.1fs", settings.embedding_model, elapsed)
+        return _model
 
 
 def embed_texts(texts: List[str], batch_size: int = 12) -> List[List[float]]:
@@ -95,9 +99,11 @@ def embed_texts(texts: List[str], batch_size: int = 12) -> List[List[float]]:
 
     vectors = output["dense_vecs"].tolist()
     per_text = elapsed / max(len(texts), 1) * 1000
-    print(
-        f"[EmbeddingModel] {len(texts)} texto(s) embedados em "
-        f"{elapsed:.2f}s ({per_text:.1f}ms/texto)"
+    logger.debug(
+        "%d texto(s) embedados em %.2fs (%.1fms/texto)",
+        len(texts),
+        elapsed,
+        per_text,
     )
     return vectors
 
@@ -114,5 +120,38 @@ def embed_query(query: str) -> List[float]:
 
 
 def embedding_dimension() -> int:
-    """Retorna a dimensão do vetor gerado pelo modelo (1024 para BGE-M3)."""
-    return 1024
+    """
+    Retorna a dimensão do vetor gerado pelo modelo.
+
+    Prioridade:
+    1. settings.embedding_dimension (se configurado explicitamente).
+    2. Dimensão do modelo instanciado (_model.model.config.hidden_size).
+    3. Catálogo de dimensões conhecidas para modelos populares.
+    4. Fallback padrão 1024.
+    """
+    from src.config import settings
+
+    if settings.embedding_dimension is not None:
+        return settings.embedding_dimension
+
+    global _model, _model_name
+    if _model is not None and _model_name == settings.embedding_model:
+        try:
+            if hasattr(_model, "model") and hasattr(_model.model, "config"):
+                return int(_model.model.config.hidden_size)
+        except Exception as e:
+            logger.debug("Não foi possível inspecionar hidden_size do modelo instanciado: %s", e)
+
+    known_dimensions = {
+        "BAAI/bge-m3": 1024,
+        "BAAI/bge-large-en-v1.5": 1024,
+        "BAAI/bge-large-zh-v1.5": 1024,
+        "BAAI/bge-base-en-v1.5": 768,
+        "BAAI/bge-base-zh-v1.5": 768,
+        "BAAI/bge-small-en-v1.5": 384,
+        "sentence-transformers/all-MiniLM-L6-v2": 384,
+        "sentence-transformers/all-mpnet-base-v2": 768,
+        "text-embedding-3-small": 1536,
+        "text-embedding-3-large": 3072,
+    }
+    return known_dimensions.get(settings.embedding_model, 1024)
