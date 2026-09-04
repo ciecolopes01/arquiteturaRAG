@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -199,12 +200,13 @@ class KnowledgeGraphIndex:
                 logger.warning("Falha ao limpar Neo4j: %s", e)
 
     def add_entity(self, entity: Entity):
-        """Adiciona nó de entidade ao grafo."""
+        """Adiciona nó de entidade ao grafo com sanitização de metadados."""
+        safe_meta = {k: v for k, v in entity.metadata.items() if k not in ("name", "entity_type", "chunk_id")}
         self.graph.add_node(
             entity.name,
             entity_type=entity.entity_type,
             chunk_id=entity.chunk_id,
-            **entity.metadata,
+            **safe_meta,
         )
         if entity.name not in self.entity_to_chunks:
             self.entity_to_chunks[entity.name] = set()
@@ -255,9 +257,18 @@ class KnowledgeGraphIndex:
         """Indexa uma coleção de chunks no grafo de conhecimento."""
         for c in chunks:
             self.chunk_store[c.chunk_id] = c.content
+
+            acl_principals = []
+            if isinstance(c.acl, list):
+                for item in c.acl:
+                    if isinstance(item, dict) and item.get("principal"):
+                        acl_principals.append(str(item["principal"]))
+                    elif isinstance(item, str) and item:
+                        acl_principals.append(item)
+
             self.chunk_metadata[c.chunk_id] = {
                 "tenant_id": c.tenant_id or "",
-                "acl_principals": [e.get("principal") for e in c.acl if e.get("principal")],
+                "acl_principals": acl_principals,
                 "source_uri": c.metadata.get("source_uri", ""),
                 "document_title": c.metadata.get("document_title", ""),
                 "section_title": c.metadata.get("section_title", ""),
@@ -270,6 +281,60 @@ class KnowledgeGraphIndex:
             for r in rels:
                 self.add_relation(r)
 
+    def _search_neo4j(self, query_entities: List[str]) -> Tuple[Dict[str, float], Set[str]]:
+        """
+        Executa busca relacional multi-hop diretamente no Neo4j via Cypher.
+        Retorna (chunk_scores, matched_entities).
+        """
+        if not self.neo4j_driver:
+            return {}, set()
+
+        chunk_scores: Dict[str, float] = {}
+        matched_entities: Set[str] = set()
+
+        cypher = """
+        UNWIND $entities AS q_name
+        MATCH (e:Entity) WHERE toLower(e.name) = toLower(q_name)
+        OPTIONAL MATCH (e)-[r1:RELATION]-(n1:Entity)
+        OPTIONAL MATCH (n1)-[r2:RELATION]-(n2:Entity) WHERE n2 <> e
+        RETURN e.name AS q_name,
+               e.chunk_id AS q_cid,
+               n1.name AS n1_name,
+               coalesce(r1.chunk_id, n1.chunk_id) AS n1_cid,
+               n2.name AS n2_name,
+               coalesce(r2.chunk_id, n2.chunk_id) AS n2_cid
+        """
+
+        try:
+            with self.neo4j_driver.session() as session:
+                result = session.run(cypher, entities=query_entities)
+                for record in result:
+                    q_name = record["q_name"]
+                    q_cid = record["q_cid"]
+                    if q_name:
+                        matched_entities.add(q_name)
+                    if q_cid:
+                        chunk_scores[q_cid] = chunk_scores.get(q_cid, 0.0) + 1.0
+
+                    n1_name = record["n1_name"]
+                    n1_cid = record["n1_cid"]
+                    if n1_name:
+                        matched_entities.add(n1_name)
+                    if n1_cid:
+                        chunk_scores[n1_cid] = chunk_scores.get(n1_cid, 0.0) + 0.6
+
+                    n2_name = record["n2_name"]
+                    n2_cid = record["n2_cid"]
+                    if n2_name:
+                        matched_entities.add(n2_name)
+                    if n2_cid:
+                        chunk_scores[n2_cid] = chunk_scores.get(n2_cid, 0.0) + 0.3
+
+            return chunk_scores, matched_entities
+        except Exception as e:
+            logger.debug("Falha na consulta Cypher ao Neo4j (%s); usando fallback NetworkX", e)
+            return {}, set()
+
     def search_graph(
         self,
         query: str,
@@ -280,10 +345,11 @@ class KnowledgeGraphIndex:
         """
         Executa Graph Search para a consulta:
         1. Identifica entidades presentes na query.
-        2. Percorre a vizinhança de 1 e 2 saltos no grafo.
-        3. Mapeia as entidades encontradas de volta para os chunks de origem.
-        4. Aplica pré-filtro de tenant e ACL (principals).
-        5. Pontua chunks com base em centralidade e proximidade relacional.
+        2. Tenta consulta direta no Neo4j via Cypher (com fallback para NetworkX em memória).
+        3. Percorre a vizinhança de 1 e 2 saltos no grafo.
+        4. Mapeia as entidades encontradas de volta para os chunks de origem.
+        5. Aplica pré-filtro de tenant e ACL (principals).
+        6. Pontua chunks com base em centralidade e proximidade relacional.
         """
         query_entities = extract_entities_from_text(query)
         if not query_entities:
@@ -292,42 +358,50 @@ class KnowledgeGraphIndex:
         chunk_scores: Dict[str, float] = {}
         matched_subgraph_entities: Set[str] = set()
 
-        for q_ent in query_entities:
-            if q_ent not in self.graph:
-                continue
+        # 1. Tenta consulta Cypher diretamente no Neo4j
+        if self.neo4j_driver:
+            chunk_scores, matched_subgraph_entities = self._search_neo4j(query_entities)
 
-            matched_subgraph_entities.add(q_ent)
+        # 2. Se Neo4j não retornou chunks (ou driver ausente), usa o grafo NetworkX em memória
+        if not chunk_scores:
+            for q_ent in query_entities:
+                if q_ent not in self.graph:
+                    continue
 
-            # 1. Chunks diretos da entidade (score 1.0)
-            for cid in self.entity_to_chunks.get(q_ent, set()):
-                chunk_scores[cid] = chunk_scores.get(cid, 0.0) + 1.0
+                matched_subgraph_entities.add(q_ent)
 
-            # 2. Vizinhos diretos (1 salto - score 0.6)
-            try:
-                neighbors_1 = list(self.graph.neighbors(q_ent)) + list(self.graph.predecessors(q_ent))
-            except Exception as e:
-                logger.debug("Falha ao obter vizinhos de 1 salto para %s: %s", q_ent, e)
-                neighbors_1 = []
+                # 1. Chunks diretos da entidade (score 1.0)
+                for cid in self.entity_to_chunks.get(q_ent, set()):
+                    chunk_scores[cid] = chunk_scores.get(cid, 0.0) + 1.0
 
-            for n1 in set(neighbors_1):
-                matched_subgraph_entities.add(n1)
-                for cid in self.entity_to_chunks.get(n1, set()):
-                    chunk_scores[cid] = chunk_scores.get(cid, 0.0) + 0.6
-
-                # 3. Vizinhos de 2 saltos (score 0.3)
+                # 2. Vizinhos diretos (1 salto - score 0.6)
                 try:
-                    neighbors_2 = list(self.graph.neighbors(n1))
+                    neighbors_1 = list(self.graph.neighbors(q_ent)) + list(self.graph.predecessors(q_ent))
                 except Exception as e:
-                    logger.debug("Falha ao obter vizinhos de 2 saltos para %s: %s", n1, e)
-                    neighbors_2 = []
+                    logger.debug("Falha ao obter vizinhos de 1 salto para %s: %s", q_ent, e)
+                    neighbors_1 = []
 
-                for n2 in set(neighbors_2):
-                    if n2 != q_ent and n2 not in neighbors_1:
-                        matched_subgraph_entities.add(n2)
-                        for cid in self.entity_to_chunks.get(n2, set()):
-                            chunk_scores[cid] = chunk_scores.get(cid, 0.0) + 0.3
+                for n1 in set(neighbors_1):
+                    matched_subgraph_entities.add(n1)
+                    for cid in self.entity_to_chunks.get(n1, set()):
+                        chunk_scores[cid] = chunk_scores.get(cid, 0.0) + 0.6
+
+                    # 3. Vizinhos de 2 saltos (score 0.3)
+                    try:
+                        neighbors_2 = list(self.graph.neighbors(n1))
+                    except Exception as e:
+                        logger.debug("Falha ao obter vizinhos de 2 saltos para %s: %s", n1, e)
+                        neighbors_2 = []
+
+                    for n2 in set(neighbors_2):
+                        if n2 != q_ent and n2 not in neighbors_1:
+                            matched_subgraph_entities.add(n2)
+                            for cid in self.entity_to_chunks.get(n2, set()):
+                                chunk_scores[cid] = chunk_scores.get(cid, 0.0) + 0.3
 
         if not chunk_scores:
+            if len(self.graph) == 0:
+                logger.warning("Canal de grafo vazio (sem entidades indexadas no Neo4j ou NetworkX)")
             return []
 
         # Ordena chunks por pontuação decrescente
@@ -342,17 +416,14 @@ class KnowledgeGraphIndex:
             c_principals = meta.get("acl_principals") or []
 
             # Filtro de tenant — deny-by-default: chunk sem tenant falha o check
-            # (alinhado ao comportamento de dense/BM25 que rejeitam por padrão)
             if tenant_id is not None and c_tenant != tenant_id:
                 continue
 
             # Filtro de ACL — deny-by-default: chunk sem ACL falha o check
-            # (alinhado ao &amp;&amp; do Postgres e MatchAny do Qdrant que não casam com lista vazia)
             if principals is not None and not (set(principals) & set(c_principals)):
                 continue
 
-            # Coleta entidades apenas dos chunks autorizados (evita vazar nomes de
-            # entidades de outros tenants via matched_entities antes da filtragem)
+            # Coleta entidades apenas dos chunks autorizados
             for entity, chunk_set in self.entity_to_chunks.items():
                 if cid in chunk_set:
                     authorized_entities.add(entity)
@@ -378,14 +449,17 @@ class KnowledgeGraphIndex:
         return results
 
 
-# Singleton global
+# Singleton global com thread safety
 _GRAPH_INDEX: Optional[KnowledgeGraphIndex] = None
+_GRAPH_LOCK = threading.Lock()
 
 
 def get_graph_index() -> KnowledgeGraphIndex:
     global _GRAPH_INDEX
     if _GRAPH_INDEX is None:
-        _GRAPH_INDEX = KnowledgeGraphIndex()
+        with _GRAPH_LOCK:
+            if _GRAPH_INDEX is None:
+                _GRAPH_INDEX = KnowledgeGraphIndex()
     return _GRAPH_INDEX
 
 

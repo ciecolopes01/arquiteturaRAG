@@ -6,11 +6,15 @@ alguma variável obrigatória, falha aqui, e não no meio de um pipeline
 de ingestão em produção.
 """
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # Ambiente
+    environment: str = "development"       # "development" | "production" | "test"
 
     # LLM & Visão
     anthropic_api_key: str = ""
@@ -59,6 +63,24 @@ class Settings(BaseSettings):
     enable_cache: bool = True
     cache_response_ttl: int = 3600
     cache_embedding_ttl: int = 86400
+
+    @model_validator(mode="after")
+    def validate_production_credentials(self) -> "Settings":
+        if self.environment.lower() == "production":
+            insecure_defaults = [
+                ("postgres_url", "rag_dev_password"),
+                ("minio_secret_key", "minioadmin_dev"),
+                ("neo4j_password", "rag_neo4j_password"),
+            ]
+            for field_name, default_val in insecure_defaults:
+                val = getattr(self, field_name, "")
+                if default_val in val:
+                    raise ValueError(
+                        f"Configuração insegura detectada em produção: o campo '{field_name}' "
+                        f"contém a credencial padrão de desenvolvimento '{default_val}'. "
+                        "Defina credenciais seguras no arquivo .env ou variáveis de ambiente."
+                    )
+        return self
 
 
 settings = Settings()

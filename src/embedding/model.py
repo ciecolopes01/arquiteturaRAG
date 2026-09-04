@@ -13,6 +13,7 @@ Dependências: FlagEmbedding>=1.2.10, torch>=2.0.0
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import List
 
@@ -21,10 +22,11 @@ from typing import List
 _model = None
 _model_name: str = ""
 _device: str = ""
+_model_lock = threading.Lock()
 
 
 def _get_model():
-    """Carrega o modelo BGE-M3 uma única vez (singleton de módulo)."""
+    """Carrega o modelo BGE-M3 uma única vez com thread-safety."""
     global _model, _model_name, _device
 
     from src.config import settings
@@ -32,6 +34,10 @@ def _get_model():
     # Só recarrega se a configuração mudou (improvável em produção)
     if _model is not None and _model_name == settings.embedding_model:
         return _model
+
+    with _model_lock:
+        if _model is not None and _model_name == settings.embedding_model:
+            return _model
 
     try:
         from FlagEmbedding import BGEM3FlagModel

@@ -24,6 +24,7 @@ Dependências: FlagEmbedding>=1.2.10 (já instalado no Passo 4), torch
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass
 from typing import List, Optional
@@ -39,19 +40,24 @@ from src.config import settings
 from src.retrieval.hybrid import HybridResult
 
 # ---------------------------------------------------------------------------
-# Singleton do modelo
+# Singleton do modelo (thread-safe)
 # ---------------------------------------------------------------------------
 
 _reranker = None
 _reranker_model_name: str = ""
+_reranker_lock = threading.Lock()
 
 
 def _get_reranker():
-    """Carrega FlagReranker uma única vez (singleton de módulo)."""
+    """Carrega FlagReranker uma única vez com thread-safety."""
     global _reranker, _reranker_model_name
 
     if _reranker is not None and _reranker_model_name == settings.reranker_model:
         return _reranker
+
+    with _reranker_lock:
+        if _reranker is not None and _reranker_model_name == settings.reranker_model:
+            return _reranker
 
     try:
         from FlagEmbedding import FlagReranker

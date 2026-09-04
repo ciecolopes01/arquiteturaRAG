@@ -32,8 +32,10 @@ Funções:
 
 from __future__ import annotations
 
+import threading
 import time
-from typing import List, Optional
+from contextlib import contextmanager
+from typing import Any, List, Optional
 
 # Observabilidade (Passo 14)
 try:
@@ -45,23 +47,64 @@ except ImportError:
 import psycopg2
 import psycopg2.extras
 from psycopg2 import errors as pg_errors
+from psycopg2.pool import ThreadedConnectionPool
 
 from src.chunking.recursive import Chunk
 from src.config import settings
 
 # ---------------------------------------------------------------------------
-# Conexão (singleton simples — sem pool nesta fase)
+# Conexão: ThreadedConnectionPool para concorrência segura (Sprint 2)
 # ---------------------------------------------------------------------------
 
-_conn = None
+_pool: Optional[ThreadedConnectionPool] = None
+_pool_lock = threading.Lock()
+
+
+def get_connection_pool(minconn: int = 1, maxconn: int = 10) -> ThreadedConnectionPool:
+    """Retorna o pool de conexões thread-safe para o Postgres."""
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = ThreadedConnectionPool(
+                    minconn=minconn,
+                    maxconn=maxconn,
+                    dsn=settings.postgres_url,
+                )
+    return _pool
+
+
+@contextmanager
+def get_db_connection():
+    """
+    Context manager que obtém uma conexão do pool e a devolve no finally.
+    """
+    pool = get_connection_pool()
+    conn = pool.getconn()
+    try:
+        yield conn
+    finally:
+        pool.putconn(conn)
 
 
 def _get_conn():
-    global _conn
-    if _conn is None or _conn.closed:
-        _conn = psycopg2.connect(settings.postgres_url)
-        _conn.autocommit = False
-    return _conn
+    """
+    Função de compatibilidade: obtém uma conexão do pool.
+    """
+    return get_connection_pool().getconn()
+
+
+def extract_acl_principals(acl: Any) -> List[str]:
+    """Extrai lista de identificadores de acesso de forma segura suportando strings e dicts."""
+    if not isinstance(acl, list):
+        return []
+    principals = []
+    for item in acl:
+        if isinstance(item, dict) and item.get("principal"):
+            principals.append(str(item["principal"]))
+        elif isinstance(item, str) and item:
+            principals.append(item)
+    return principals
 
 
 # ---------------------------------------------------------------------------
@@ -181,19 +224,19 @@ LIMIT %(top_k)s;
 
 def create_bm25_table() -> None:
     """Cria a tabela bm25_chunks e os índices GIN se ainda não existirem."""
-    conn = _get_conn()
-    with conn.cursor() as cur:
-        cur.execute(CREATE_TABLE_SQL)
-    conn.commit()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(CREATE_TABLE_SQL)
+        conn.commit()
     print("[BM25] Tabela e índices criados (ou já existiam).")
 
 
 def clear_bm25_table() -> None:
     """Remove todos os registros da tabela (para re-indexação limpa)."""
-    conn = _get_conn()
-    with conn.cursor() as cur:
-        cur.execute("DELETE FROM bm25_chunks;")
-    conn.commit()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM bm25_chunks;")
+        conn.commit()
     print("[BM25] Tabela limpa.")
 
 
@@ -212,7 +255,6 @@ def index_bm25(chunks: List[Chunk], clear_first: bool = False) -> int:
     if clear_first:
         clear_bm25_table()
 
-    conn = _get_conn()
     records = [
         {
             "chunk_id":      c.chunk_id,
@@ -223,16 +265,17 @@ def index_bm25(chunks: List[Chunk], clear_first: bool = False) -> int:
             "document_title":c.metadata.get("document_title", ""),
             "section_title": c.metadata.get("section_title") or "",
             "chunk_index":   c.metadata.get("chunk_index", 0),
-            "acl_principals": [e.get("principal") for e in c.acl if e.get("principal")],
+            "acl_principals": extract_acl_principals(c.acl),
             "parent_chunk_id": c.parent_chunk_id or c.metadata.get("parent_chunk_id"),
             "parent_content": c.metadata.get("parent_content"),
         }
         for c in chunks
     ]
 
-    with conn.cursor() as cur:
-        psycopg2.extras.execute_batch(cur, UPSERT_SQL, records, page_size=50)
-    conn.commit()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            psycopg2.extras.execute_batch(cur, UPSERT_SQL, records, page_size=50)
+        conn.commit()
 
     print(f"[BM25] {len(chunks)} chunk(s) indexado(s) no Postgres.")
     return len(chunks)
@@ -263,7 +306,6 @@ def search_bm25(
     from src.retrieval.acl_filter import resolve_principals
     principals = resolve_principals(principals, tenant_id=tenant_id)
 
-    conn = _get_conn()
     sql = SEARCH_SQL if use_plain else SEARCH_SQL_SIMPLE
 
     params = {
@@ -274,44 +316,47 @@ def search_bm25(
     }
 
     _t0 = time.time()
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        try:
-            cur.execute(sql, params)
-            rows = cur.fetchall()
-        except pg_errors.SyntaxError as e:
-            conn.rollback()
-            # Fallback: plainto_tsquery sempre funciona; to_tsquery pode falhar
-            # com termos que contêm caracteres especiais
-            if not use_plain:
-                return search_bm25(
-                    query, top_k=top_k, tenant_id=tenant_id,
-                    principals=principals, use_plain=True,
-                )
-            raise e
-        except psycopg2.Error as e:
-            conn.rollback()
-            raise e
-    _bm25_ms = (time.time() - _t0) * 1000
-    trace = get_current_trace()
-    if trace is not None:
-        trace.record_stage("retrieval.bm25", _bm25_ms, top_k=top_k)
+    rows = []
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            try:
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+            except pg_errors.SyntaxError as e:
+                conn.rollback()
+                # Fallback: plainto_tsquery sempre funciona; to_tsquery pode falhar
+                # com termos que contêm caracteres especiais
+                if not use_plain:
+                    return search_bm25(
+                        query, top_k=top_k, tenant_id=tenant_id,
+                        principals=principals, use_plain=True,
+                    )
+                raise e
+            except psycopg2.Error as e:
+                conn.rollback()
+                raise e
 
-    if not rows and use_plain:
-        import re
-        words = [w for w in re.findall(r"\w+", query.lower()) if len(w) > 2 and w not in {"qual", "quais", "onde", "como", "quando", "para", "pela", "pelo", "que", "com", "dos", "das"}]
-        if words:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                try:
-                    or_terms = " | ".join(words)
-                    cur.execute(SEARCH_SQL_SIMPLE, {
-                        "query_text": or_terms,
-                        "tenant_id": tenant_id or "",
-                        "principals": principals or [],
-                        "top_k": top_k,
-                    })
-                    rows = cur.fetchall()
-                except Exception:
-                    conn.rollback()
+        _bm25_ms = (time.time() - _t0) * 1000
+        trace = get_current_trace()
+        if trace is not None:
+            trace.record_stage("retrieval.bm25", _bm25_ms, top_k=top_k)
+
+        if not rows and use_plain:
+            import re
+            words = [w for w in re.findall(r"\w+", query.lower()) if len(w) > 2 and w not in {"qual", "quais", "onde", "como", "quando", "para", "pela", "pelo", "que", "com", "dos", "das"}]
+            if words:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    try:
+                        or_terms = " | ".join(words)
+                        cur.execute(SEARCH_SQL_SIMPLE, {
+                            "query_text": or_terms,
+                            "tenant_id": tenant_id or "",
+                            "principals": principals or [],
+                            "top_k": top_k,
+                        })
+                        rows = cur.fetchall()
+                    except Exception:
+                        conn.rollback()
 
     if not rows:
         return []
@@ -348,9 +393,9 @@ def delete_document(document_id: str) -> int:
 
     Retorna o número de chunks removidos.
     """
-    conn = _get_conn()
-    with conn.cursor() as cur:
-        cur.execute("DELETE FROM bm25_chunks WHERE document_id = %s;", (document_id,))
-        n = cur.rowcount
-    conn.commit()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM bm25_chunks WHERE document_id = %s;", (document_id,))
+            n = cur.rowcount
+        conn.commit()
     return n

@@ -34,6 +34,8 @@ except ImportError:
     def get_current_trace():
         return None
 
+import threading
+
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -50,16 +52,19 @@ from src.config import settings
 from src.embedding.model import embed_query, embed_texts, embedding_dimension
 
 # ---------------------------------------------------------------------------
-# Cliente Qdrant (singleton de módulo)
+# Cliente Qdrant (singleton de módulo thread-safe)
 # ---------------------------------------------------------------------------
 
 _client: Optional[QdrantClient] = None
+_client_lock = threading.Lock()
 
 
 def _get_client() -> QdrantClient:
     global _client
     if _client is None:
-        _client = QdrantClient(url=settings.qdrant_url)
+        with _client_lock:
+            if _client is None:
+                _client = QdrantClient(url=settings.qdrant_url)
     return _client
 
 
