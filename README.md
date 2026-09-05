@@ -247,6 +247,11 @@ arquiteturaRAG/
 ├── benchmarks/              # Configurações YAML e suítes comparativas de benchmark
 │   └── configs/             # Perfis de teste (pure_dense, bm25, hybrid_rrf, etc.)
 ├── data/                    # Corpus seed e golden datasets de avaliação
+├── demo/                    # Aplicação Web completa da Demo Local (FastAPI + Frontend)
+│   ├── run_demo.bat         # Inicializador 1-clique para Windows
+│   ├── run_demo.sh          # Inicializador 1-clique para Linux/macOS
+│   ├── server.py            # Servidor FastAPI com upload, parse e busca real
+│   └── static/index.html    # Interface web com drag & drop e dashboard RRF
 ├── docs/
 │   ├── adr/                 # Architecture Decision Records (ADRs formais)
 │   ├── rag_flow_5s.gif      # Animação do pipeline completo em 5 segundos
