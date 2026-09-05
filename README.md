@@ -50,11 +50,13 @@ flowchart TD
 
 ---
 
-## 🎬 Fluxo do Pipeline em 5 Segundos
+## 🎬 Demonstração Interativa & Fluxo em 5 Segundos
 
 ![Fluxo RAG Multimodal em 5 Segundos](docs/rag_flow_5s.gif)
 
-> 💡 **Infográfico Interativo & Exportador de Vídeo**: Para explorar a linha do tempo passo a passo, ver as partículas em tempo real e exportar em formato de vídeo nativo, abra [docs/rag_flow_infographic.html](docs/rag_flow_infographic.html) diretamente no seu navegador.
+> 🎮 **Experimente a Demo Interativa Completa**: Abra [docs/rag_interactive_demo.html](docs/rag_interactive_demo.html) diretamente no seu navegador para testar a ingestão de diferentes arquivos (PDF, XLSX, Imagens, Áudio, Vídeo), inspecionar os chunks gerados e simular consultas em tempo real com busca tri-canal, cálculo de RRF e bloqueio por ACL.
+>
+> 💡 **Infográfico Animado & Exportador de Vídeo**: Abra [docs/rag_flow_infographic.html](docs/rag_flow_infographic.html) para ver a linha do tempo do fluxo em 5 segundos e gravar o vídeo em formato WebM nativo.
 
 ---
 
@@ -248,7 +250,8 @@ arquiteturaRAG/
 ├── docs/
 │   ├── adr/                 # Architecture Decision Records (ADRs formais)
 │   ├── rag_flow_5s.gif      # Animação do pipeline completo em 5 segundos
-│   └── rag_flow_infographic.html # Infográfico animado interativo com gravação de vídeo
+│   ├── rag_flow_infographic.html # Infográfico animado interativo com gravação de vídeo
+│   └── rag_interactive_demo.html # Simulador interativo completo de Ingestão e Busca
 ├── scripts/                 # Scripts utilitários de geração de seeds e reindexação
 │   └── reindex_all.py       # Reindexação incremental do corpus
 ├── src/
