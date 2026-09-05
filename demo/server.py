@@ -198,6 +198,21 @@ def execute_real_chunking(doc: Document, strategy: str) -> List[Dict[str, Any]]:
                 "principals": doc.metadata.get("principals", ["*"])
             })
 
+        if not chunks_output and res.parents:
+            for p in res.parents:
+                chunks_output.append({
+                    "chunk_id": p.chunk_id,
+                    "strategy": "parent_child_scene",
+                    "parent_chunk_id": p.chunk_id,
+                    "parent_content_preview": p.content[:200],
+                    "content": p.content,
+                    "length_chars": len(p.content),
+                    "words": len(p.content.split()),
+                    "metadata": p.metadata,
+                    "tenant_id": p.tenant_id or doc.tenant_id or "tenant_acme",
+                    "principals": doc.metadata.get("principals", ["*"])
+                })
+
     elif strategy == "semantic":
         # Divide por seções e parágrafos com agrupamento por similaridade
         raw_chunks: List[Chunk] = chunk_recursive(doc, max_tokens=300, overlap=40)
