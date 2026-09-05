@@ -103,6 +103,27 @@
         </button>
       </div>
 
+      <!-- Terminal de Telemetria e Logs em Tempo Real -->
+      <div id="live-terminal-card" class="hidden bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-2xl space-y-0">
+        <div class="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+            <span class="text-xs font-mono text-slate-300 font-bold ml-2">Console de Telemetria & Logs do Backend</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="terminal-live-badge" class="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> LIVE STREAM
+            </span>
+            <button onclick="clearTerminalLogs()" class="text-[11px] text-slate-400 hover:text-white font-mono transition">Limpar</button>
+          </div>
+        </div>
+        <div id="live-terminal-body" class="p-4 font-mono text-xs text-slate-300 bg-slate-950 max-h-56 overflow-y-auto custom-scroll space-y-1.5 leading-relaxed">
+          <div class="text-slate-600">// Aguardando início do processamento...</div>
+        </div>
+      </div>
+
       <!-- Card com Resultados da Ingestão e Explicação Interativa -->
       <div id="ingest-result-card" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -295,6 +316,13 @@
       btn.innerHTML = "<span>⏳</span> <span>Processando...</span>";
       document.getElementById("ingest-status-label").textContent = "Executando parsing, extração e chunking...";
 
+      // Exibe e inicializa o terminal ao vivo
+      const termCard = document.getElementById("live-terminal-card");
+      termCard.classList.remove("hidden");
+      document.getElementById("live-terminal-body").innerHTML = '<div class="text-cyan-400 font-bold">// 🚀 Pipeline iniciado. Conectando telemetria em tempo real...</div>';
+      lastLogCount = 0;
+      startLiveLogPolling();
+
       try {
         const res = await fetch("/api/upload", { method: "POST", body: formData });
         const data = await res.json();
@@ -302,9 +330,12 @@
         btn.innerHTML = "<span>⚙️</span> <span>Processar Arquivo & Gerar Chunks</span>";
 
         if (!data.success) {
+          appendLogLine({ time: new Date().toTimeString().split(" ")[0], level: "ERROR", message: "Erro no upload: " + (data.detail || "Falha desconhecida") });
           alert("Erro no upload: " + (data.detail || "Falha desconhecida"));
           return;
         }
+
+        appendLogLine({ time: new Date().toTimeString().split(" ")[0], level: "INFO", message: `✅ Ingestão concluída com sucesso! ${data.total_chunks} chunks gerados e indexados.` });
 
         // Exibe Card de Resultados
         const card = document.getElementById("ingest-result-card");
@@ -405,6 +436,75 @@
       } catch (err) {
         alert("Erro na busca: " + err.message);
       }
+    }
+
+    // Funções de Streaming de Telemetria e Logs em Tempo Real
+    let logPollingInterval = null;
+    let lastLogCount = 0;
+    let activeEventSource = null;
+
+    function clearTerminalLogs() {
+      document.getElementById("live-terminal-body").innerHTML = '<div class="text-slate-600">// Console limpo.</div>';
+      lastLogCount = 0;
+      fetch("/api/logs/clear", { method: "POST" });
+    }
+
+    function appendLogLine(item) {
+      const term = document.getElementById("live-terminal-body");
+      if (!term) return;
+
+      const div = document.createElement("div");
+      let badgeColor = "text-cyan-400";
+      if (item.level === "WARNING") badgeColor = "text-amber-400";
+      if (item.level === "ERROR") badgeColor = "text-rose-400";
+
+      div.className = "flex items-start gap-2 leading-relaxed";
+      div.innerHTML = `
+        <span class="text-slate-500 shrink-0 select-none">[${item.time}]</span>
+        <span class="font-bold ${badgeColor} shrink-0 select-none">[${item.level}]</span>
+        <span class="text-slate-300 break-all font-mono">${item.message}</span>
+      `;
+      term.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function startLiveLogPolling() {
+      if (activeEventSource) {
+        activeEventSource.close();
+      }
+      if (logPollingInterval) {
+        clearInterval(logPollingInterval);
+      }
+
+      // 1. Tenta usar Server-Sent Events (SSE) nativo
+      try {
+        activeEventSource = new EventSource("/api/logs/stream");
+        activeEventSource.onmessage = function(e) {
+          try {
+            const item = JSON.parse(e.data);
+            appendLogLine(item);
+          } catch(err) {}
+        };
+        activeEventSource.onerror = function() {
+          activeEventSource.close();
+          runPollingFallback();
+        };
+      } catch (err) {
+        runPollingFallback();
+      }
+    }
+
+    function runPollingFallback() {
+      logPollingInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/logs?since_idx=${lastLogCount}`);
+          const data = await res.json();
+          if (data.logs && data.logs.length > 0) {
+            data.logs.forEach(appendLogLine);
+            lastLogCount = data.total;
+          }
+        } catch (e) {}
+      }, 500);
     }
   </script>
 </body>

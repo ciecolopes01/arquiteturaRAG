@@ -18,6 +18,7 @@ import os
 import subprocess
 import tempfile
 import uuid
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -27,6 +28,8 @@ from scenedetect import ContentDetector, detect
 from src.config import settings
 from src.parsing.canonical_model import Document, ElementType, VideoScene
 from src.parsing.image_parser import describe_image_visual, extract_text_from_image
+
+logger = logging.getLogger("rag_demo")
 
 # ---------------------------------------------------------------------------
 # Singleton / Cache para o modelo Whisper
@@ -359,8 +362,11 @@ def parse_video(
 
     content_hash = _sha256_file(path)
     title = path.stem.replace("_", " ").title()
+    size_mb = round(path.stat().st_size / (1024 * 1024), 2)
+    logger.info(f"Iniciando pipeline de vídeo: '{path.name}' ({size_mb} MB)")
 
     # 1. Extração e Transcrição de Áudio
+    logger.info("Etapa 1/3: Extraindo áudio e transcrevendo com timestamps via Whisper...")
     audio_path = extract_audio_from_video(path)
     transcription_segments: List[Dict[str, Any]] = []
     if audio_path:
@@ -381,16 +387,22 @@ def parse_video(
         except Exception:
             transcription_segments = []
 
+    logger.info(f"Transcrição concluída: {len(transcription_segments)} segmentos de fala detectados.")
+
     # 2. Detecção de Cenas
+    logger.info("Etapa 2/3: Detectando cortes de cena no vídeo via PySceneDetect...")
     raw_scenes = detect_video_scenes(path, threshold=scene_threshold)
+    logger.info(f"Detecção de cenas concluída: {len(raw_scenes)} cenas identificadas.")
 
     # 3. Construção dos elementos VideoScene
+    logger.info(f"Etapa 3/3: Processando keyframes e OCR para {len(raw_scenes)} cenas...")
     elements: List[VideoScene] = []
     video_doc_id = str(uuid.uuid4())
 
     for idx, (start_sec, end_sec) in enumerate(raw_scenes):
         start_str = format_timestamp(start_sec)
         end_str = format_timestamp(end_sec)
+        logger.info(f"  • Processando cena {idx + 1}/{len(raw_scenes)} [{start_str} - {end_str}]...")
 
         # Midpoint temporal para extrair o keyframe
         mid_sec = (start_sec + end_sec) / 2.0

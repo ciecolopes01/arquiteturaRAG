@@ -14,9 +14,12 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+import collections
+import json
+import asyncio
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -31,9 +34,34 @@ from src.parsing.simple_parsers import parse_txt, parse_html
 from src.chunking.recursive import chunk_recursive, Chunk, generate_chunk_id
 from src.chunking.parent_child import chunk_parent_child, ParentChildResult
 
-# Configuração de Logs
+# ---------------------------------------------------------------------------
+# Buffer de Logs em Tempo Real para a Interface Web
+# ---------------------------------------------------------------------------
+LOG_BUFFER = collections.deque(maxlen=600)
+
+class WebhookLogHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            if not msg:
+                return
+            t = time.strftime("%H:%M:%S")
+            LOG_BUFFER.append({
+                "time": t,
+                "level": record.levelname,
+                "name": record.name,
+                "message": msg
+            })
+        except Exception:
+            pass
+
+log_handler = WebhookLogHandler()
+log_handler.setFormatter(logging.Formatter("%(message)s"))
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("rag_demo")
+logger.addHandler(log_handler)
+logging.getLogger().addHandler(log_handler)
 
 app = FastAPI(title="RAG Multimodal Enterprise — Demo Local", version="1.0.0")
 
@@ -302,6 +330,35 @@ def get_status():
         "neo4j_uri": settings.neo4j_uri,
         "has_anthropic_key": bool(settings.anthropic_api_key and "sk-ant" in settings.anthropic_api_key),
     }
+
+
+@app.get("/api/logs")
+def get_logs(since_idx: int = 0):
+    all_logs = list(LOG_BUFFER)
+    return {
+        "logs": all_logs[since_idx:],
+        "total": len(all_logs)
+    }
+
+
+@app.get("/api/logs/stream")
+async def stream_logs():
+    async def event_generator():
+        last_idx = 0
+        while True:
+            all_logs = list(LOG_BUFFER)
+            if len(all_logs) > last_idx:
+                for item in all_logs[last_idx:]:
+                    yield f"data: {json.dumps(item)}\n\n"
+                last_idx = len(all_logs)
+            await asyncio.sleep(0.3)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.post("/api/logs/clear")
+def clear_logs():
+    LOG_BUFFER.clear()
+    return {"cleared": True}
 
 
 @app.post("/api/upload")
