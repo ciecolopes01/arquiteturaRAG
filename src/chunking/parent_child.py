@@ -29,7 +29,16 @@ from src.chunking.recursive import (
     _max_words,
     _split_text,
 )
-from src.parsing.canonical_model import Document, ElementType, Image, Paragraph, Section, Table
+from src.parsing.canonical_model import (
+    AudioSegment,
+    Document,
+    ElementType,
+    Image,
+    Paragraph,
+    Section,
+    Table,
+    VideoScene,
+)
 
 
 @dataclass
@@ -189,6 +198,90 @@ def _build_parent_chunks(
                 },
             )
             parents.append(img_chunk)
+
+        elif etype == ElementType.VIDEO_SCENE:
+            assert isinstance(element, VideoScene)
+            flush_parent()
+            content = element.content or ""
+            if not content.strip():
+                parts = [f"## Cena {element.scene_index} ({element.start_time_str} - {element.end_time_str})"]
+                if element.transcript:
+                    parts.append(f"### Transcrição de Áudio\n{element.transcript}")
+                if element.visual_description:
+                    parts.append(f"### Descrição Visual (Keyframe)\n{element.visual_description}")
+                if element.ocr_text:
+                    parts.append(f"### Texto na Tela (OCR)\n{element.ocr_text}")
+                content = "\n\n".join(parts)
+
+            sec_ctx = f"[Vídeo: {document.title or 'Vídeo'}]\n" if document.title else ""
+            video_full = (sec_ctx + content).strip()
+
+            video_chunk = Chunk(
+                document_id=document.id,
+                content=video_full,
+                tenant_id=document.tenant_id,
+                acl=[entry.model_dump() for entry in document.acl],
+                parent_chunk_id=None,
+                metadata={
+                    "is_parent": True,
+                    "is_child": False,
+                    "element_type": "video_scene",
+                    "scene_index": element.scene_index,
+                    "start_time": element.start_time,
+                    "end_time": element.end_time,
+                    "start_time_str": element.start_time_str,
+                    "end_time_str": element.end_time_str,
+                    "transcript": element.transcript,
+                    "visual_description": element.visual_description,
+                    "ocr_text": element.ocr_text,
+                    "source_uri": document.source_uri,
+                    "document_title": document.title,
+                    "section_title": current_section_title,
+                    "parent_index": len(parents),
+                    "element_ids": [element.id],
+                },
+            )
+            parents.append(video_chunk)
+
+        elif etype == ElementType.AUDIO_SEGMENT:
+            assert isinstance(element, AudioSegment)
+            flush_parent()
+            content = element.content or ""
+            if not content.strip():
+                parts = [f"## Segmento de Áudio ({element.start_time_str} - {element.end_time_str})"]
+                if element.speaker:
+                    parts.append(f"Locutor: {element.speaker}")
+                if element.transcript:
+                    parts.append(f"Transcrição: {element.transcript}")
+                content = "\n\n".join(parts)
+
+            sec_ctx = f"[Áudio: {document.title or 'Áudio'}]\n" if document.title else ""
+            audio_full = (sec_ctx + content).strip()
+
+            audio_chunk = Chunk(
+                document_id=document.id,
+                content=audio_full,
+                tenant_id=document.tenant_id,
+                acl=[entry.model_dump() for entry in document.acl],
+                parent_chunk_id=None,
+                metadata={
+                    "is_parent": True,
+                    "is_child": False,
+                    "element_type": "audio_segment",
+                    "start_time": element.start_time,
+                    "end_time": element.end_time,
+                    "start_time_str": element.start_time_str,
+                    "end_time_str": element.end_time_str,
+                    "speaker": element.speaker,
+                    "transcript": element.transcript,
+                    "source_uri": document.source_uri,
+                    "document_title": document.title,
+                    "section_title": current_section_title,
+                    "parent_index": len(parents),
+                    "element_ids": [element.id],
+                },
+            )
+            parents.append(audio_chunk)
 
         elif etype == ElementType.PARAGRAPH:
             assert isinstance(element, Paragraph)
