@@ -264,8 +264,41 @@ def extract_keyframe_bytes(
 # Upload Opcional para MinIO
 # ---------------------------------------------------------------------------
 
+_MINIO_AVAILABLE: Optional[bool] = None
+
+def _is_minio_reachable() -> bool:
+    """Verifica se o servidor MinIO está acessível via socket rápido (0.15s) com cache."""
+    global _MINIO_AVAILABLE
+    if _MINIO_AVAILABLE is not None:
+        return _MINIO_AVAILABLE
+
+    import socket
+    endpoint = settings.minio_endpoint or "localhost:9000"
+    try:
+        if ":" in endpoint:
+            host, port_str = endpoint.split(":", 1)
+            port = int(port_str)
+        else:
+            host, port = endpoint, 9000
+    except Exception:
+        host, port = "localhost", 9000
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(0.15)
+    try:
+        sock.connect((host, port))
+        sock.close()
+        _MINIO_AVAILABLE = True
+    except Exception:
+        _MINIO_AVAILABLE = False
+    return _MINIO_AVAILABLE
+
+
 def _upload_keyframe(keyframe_bytes: bytes, object_name: str) -> Optional[str]:
     """Salva keyframe no MinIO se disponível."""
+    if not _is_minio_reachable():
+        return None
+
     try:
         from minio import Minio
 
