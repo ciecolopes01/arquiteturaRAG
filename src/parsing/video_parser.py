@@ -167,6 +167,7 @@ def transcribe_audio_with_timestamps(
                         }
                     )
             if text:
+                logger.info(f"  • Áudio [{format_timestamp(s.start)} -> {format_timestamp(s.end)}]: {text[:80]}")
                 results.append(
                     {
                         "start": round(float(s.start), 3),
