@@ -12,4 +12,6 @@ benchmarks/results/*
 *.bak
 .coverage
 htmlcov/
+demo/uploads/*
+!demo/uploads/.gitkeep
 
