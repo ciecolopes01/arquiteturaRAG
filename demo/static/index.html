@@ -49,6 +49,9 @@
         <div class="flex items-center gap-2">
           <button id="btn-mode-file" onclick="setInputMode('file')" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-bold text-xs transition">📁 Upload de Arquivo</button>
           <button id="btn-mode-text" onclick="setInputMode('text')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition">✍️ Colar Texto / Markdown</button>
+          <button onclick="resetCorpus()" title="Limpa todos os documentos da memória para iniciar um novo teste do zero" class="px-3 py-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-xs transition flex items-center gap-1">
+            <span>🗑️</span> <span>Limpar Corpus</span>
+          </button>
         </div>
       </div>
 
@@ -180,17 +183,25 @@
           </button>
         </div>
 
-        <!-- Seletor de Tenant para teste de ACL -->
+        <!-- Seletor de Documento Alvo & Tenant para teste de ACL -->
         <div class="flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-          <div class="flex items-center gap-2">
-            <span class="text-slate-400 font-semibold">Testar Segurança ACL:</span>
-            <select id="search-tenant-select" class="bg-slate-900 border border-slate-700 text-white rounded px-2.5 py-1 font-mono">
-              <option value="tenant_acme">tenant_acme (Autorizado)</option>
-              <option value="tenant_desconhecido">tenant_desconhecido (Teste Fail-Closed)</option>
-            </select>
+          <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400 font-semibold">Documento Alvo:</span>
+              <select id="search-doc-filter" class="bg-slate-900 border border-slate-700 text-cyan-300 rounded px-2.5 py-1 font-mono text-xs max-w-xs truncate">
+                <option value="ALL">🌐 Todos os documentos (Corpus Completo)</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400 font-semibold">Testar Segurança ACL:</span>
+              <select id="search-tenant-select" class="bg-slate-900 border border-slate-700 text-white rounded px-2.5 py-1 font-mono text-xs">
+                <option value="tenant_acme">tenant_acme (Autorizado)</option>
+                <option value="tenant_desconhecido">tenant_desconhecido (Teste Fail-Closed)</option>
+              </select>
+            </div>
           </div>
           <div class="text-slate-500 text-[11px]">
-            Troque o Tenant para testar a rejeição segura fail-closed em nível de índice!
+            Filtre por documento ou busque em todo o corpus acumulado.
           </div>
         </div>
       </div>
@@ -367,6 +378,7 @@
         `).join("");
 
         document.getElementById("ingest-status-label").textContent = `✅ Sucesso! ${data.total_chunks} chunks indexados e prontos para busca.`;
+        loadDocumentsList(data.filename);
 
       } catch (err) {
         btn.disabled = false;
@@ -381,6 +393,7 @@
     async function submitSearch() {
       const q = document.getElementById("search-query-input").value;
       const tenant = document.getElementById("search-tenant-select").value;
+      const targetDoc = document.getElementById("search-doc-filter").value;
 
       if (!q.trim()) {
         alert("Digite uma pergunta para buscar.");
@@ -398,6 +411,7 @@
           body: JSON.stringify({
             query: q,
             tenant_id: tenant,
+            source_file: targetDoc,
             principals: ["user:cieco", "group:financeiro"],
             top_k: 5
           })
@@ -419,6 +433,18 @@
           return;
         }
 
+        if (data.status === "NOT_FOUND" || !data.results || data.results.length === 0) {
+          document.getElementById("search-answer-text").innerHTML = `
+            <div class="p-3 bg-amber-950/40 border border-amber-800/80 rounded-lg text-amber-200 font-mono">
+              ${escapeHtml(data.answer || "Nenhum trecho relevante encontrado para a pergunta.")}
+            </div>
+          `;
+          document.getElementById("search-rrf-table-body").innerHTML = `
+            <tr><td colspan="6" class="p-4 text-center text-slate-500 font-mono">Nenhum chunk com score positivo para os termos pesquisados.</td></tr>
+          `;
+          return;
+        }
+
         // Resposta Normal
         document.getElementById("search-answer-text").textContent = data.answer;
 
@@ -431,12 +457,55 @@
             <td class="p-2.5 text-cyan-400">${r.dense_rank}</td>
             <td class="p-2.5 text-blue-400">${r.bm25_rank}</td>
             <td class="p-2.5 text-emerald-400">${r.graph_rank}</td>
-            <td class="p-2.5 text-slate-300 truncate max-w-xs" title="${r.content}">${r.content}</td>
+            <td class="p-2.5 text-slate-300 truncate max-w-xs" title="${escapeHtml(r.content)}">${escapeHtml(r.content)}</td>
           </tr>
         `).join("");
 
       } catch (err) {
         alert("Erro na busca: " + err.message);
+      }
+    }
+
+    // Gerenciamento de Documentos e Reset de Corpus
+    async function loadDocumentsList(selectedFilename = null) {
+      try {
+        const res = await fetch("/api/documents");
+        const data = await res.json();
+        const select = document.getElementById("search-doc-filter");
+        if (!select) return;
+
+        let html = '<option value="ALL">🌐 Todos os documentos (Corpus Completo)</option>';
+        if (data.documents && data.documents.length > 0) {
+          data.documents.forEach(d => {
+            const isSel = (selectedFilename && d.filename === selectedFilename) ? 'selected' : '';
+            html += `<option value="${escapeHtml(d.filename)}" ${isSel}>📄 ${escapeHtml(d.filename)} (${d.chunks_count} chunks)</option>`;
+          });
+        }
+        select.innerHTML = html;
+        if (selectedFilename) {
+          select.value = selectedFilename;
+        }
+      } catch (e) {
+        console.warn("Erro ao listar documentos:", e);
+      }
+    }
+
+    async function resetCorpus() {
+      if (!confirm("Tem certeza que deseja limpar todos os documentos do corpus em memória para iniciar um novo teste?")) {
+        return;
+      }
+      try {
+        const res = await fetch("/api/corpus/clear", { method: "POST" });
+        await res.json();
+        loadDocumentsList();
+        document.getElementById("chunks-list-container").innerHTML = "";
+        document.getElementById("ingest-result-card").classList.add("hidden");
+        document.getElementById("search-results-section").classList.add("hidden");
+        document.getElementById("ingest-status-label").textContent = "Nenhum arquivo processado ainda";
+        clearTerminalLogs();
+        alert("Corpus limpo com sucesso! Todos os documentos e chunks anteriores foram removidos da memória.");
+      } catch (e) {
+        alert("Erro ao limpar corpus: " + e.message);
       }
     }
 
@@ -504,7 +573,6 @@
     }
 
     function stopLiveLogPolling() {
-      // Busca os últimos logs gerados no final do processamento
       fetchNewLogs();
       setTimeout(fetchNewLogs, 800);
       setTimeout(() => {
@@ -514,6 +582,11 @@
         }
       }, 3000);
     }
+
+    // Inicialização ao carregar a página
+    window.addEventListener("DOMContentLoaded", () => {
+      loadDocumentsList();
+    });
   </script>
 </body>
 </html>
