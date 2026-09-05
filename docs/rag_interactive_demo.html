@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG Multimodal Enterprise — Demo Interativa & Simulador</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulseSoft {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.05); }
+    }
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(1000%); }
+    }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .scan-line { animation: scanline 4s linear infinite; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen custom-scroll flex flex-col">
+
+  <!-- NAVBAR SUPERIOR -->
+  <header class="bg-slate-900/90 border-b border-slate-800 backdrop-blur-md sticky top-0 z-50 px-4 lg:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <span class="text-white font-black text-base">R</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-base md:text-lg text-white tracking-tight">RAG Multimodal Enterprise</h1>
+          <span class="px-2 py-0.5 text-[10px] font-bold bg-cyan-500/20 text-cyan-400 rounded-full border border-cyan-500/30">DEMO INTERATIVA</span>
+          <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30">LIVE SIMULATION</span>
+        </div>
+        <p class="text-xs text-slate-400 hidden sm:block">Simulador interativo de Ingestão Multimodal, Chunking, Governança ACL e Busca Tri-Canal RRF</p>
+      </div>
+    </div>
+
+    <!-- Abas de Navegação -->
+    <div class="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+      <button id="tab-btn-ingest" onclick="switchMainTab('ingest')" class="px-3.5 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-bold transition flex items-center gap-1.5 shadow-md">
+        <span>📥</span> <span>Fluxo 1: Ingestão & Chunks</span>
+      </button>
+      <button id="tab-btn-search" onclick="switchMainTab('search')" class="px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5">
+        <span>🔍</span> <span>Fluxo 2: Busca Híbrida & RRF</span>
+      </button>
+      <button id="tab-btn-arch" onclick="switchMainTab('arch')" class="px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5">
+        <span>🏛️</span> <span>Arquitetura & Infra</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+
+    <!-- ========================================================================= -->
+    <!-- ABA 1: FLUXO DE INGESTÃO, PARSE, CHUNK & ARMAZENAMENTO -->
+    <!-- ========================================================================= -->
+    <section id="section-ingest" class="space-y-6">
+
+      <!-- Banner Explicativo -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-900/90 to-cyan-950/30 border border-slate-800 rounded-2xl p-5 shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">Simulador de Ingestão Multimodal</span>
+            <h2 class="text-xl font-bold text-white">Como o dado é parsed, fatiado e gravado nos bancos?</h2>
+            <p class="text-xs md:text-sm text-slate-300 max-w-3xl">
+              Selecione um tipo de entrada abaixo (PDF, XLSX, Imagem OCR, Áudio ou Vídeo). Veja a execução em tempo real mostrando qual parser foi chamado, as estratégias de chunking (Parent-Child, UUIDv5, Semântico), o controle de acesso (ACL) e onde cada representação é persistida.
+            </p>
+          </div>
+          <button id="btn-run-ingest" onclick="runIngestionSimulation()" class="self-start md:self-center px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl text-sm transition shadow-lg shadow-cyan-500/25 flex items-center gap-2">
+            <span>⚡</span> <span>Executar Ingestão do Arquivo</span>
+          </button>
+        </div>
+
+        <!-- Seletor de Arquivos / Entradas de Teste -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-5">
+          <button onclick="selectInputSample('pdf')" id="sample-pdf" class="sample-btn p-3 rounded-xl border border-cyan-500/80 bg-cyan-500/10 text-left transition flex flex-col gap-1">
+            <span class="text-xl">📑</span>
+            <span class="font-bold text-xs text-cyan-300">PDF Layout-Aware</span>
+            <span class="text-[11px] text-slate-400">Relatório Financeiro com tabelas</span>
+          </button>
+
+          <button onclick="selectInputSample('xlsx')" id="sample-xlsx" class="sample-btn p-3 rounded-xl border border-slate-800 bg-slate-900/60 text-left transition flex flex-col gap-1 hover:border-slate-700">
+            <span class="text-xl">📊</span>
+            <span class="font-bold text-xs text-white">Planilha XLSX</span>
+            <span class="text-[11px] text-slate-400">Balancete & Custo Operacional</span>
+          </button>
+
+          <button onclick="selectInputSample('image')" id="sample-image" class="sample-btn p-3 rounded-xl border border-slate-800 bg-slate-900/60 text-left transition flex flex-col gap-1 hover:border-slate-700">
+            <span class="text-xl">🖼️</span>
+            <span class="font-bold text-xs text-white">Imagem (OCR + Visão)</span>
+            <span class="text-[11px] text-slate-400">Diagrama de Arquitetura de Nuvem</span>
+          </button>
+
+          <button onclick="selectInputSample('audio')" id="sample-audio" class="sample-btn p-3 rounded-xl border border-slate-800 bg-slate-900/60 text-left transition flex flex-col gap-1 hover:border-slate-700">
+            <span class="text-xl">🎙️</span>
+            <span class="font-bold text-xs text-white">Áudio (Whisper)</span>
+            <span class="text-[11px] text-slate-400">Gravação de Reunião Trimestral</span>
+          </button>
+
+          <button onclick="selectInputSample('video')" id="sample-video" class="sample-btn p-3 rounded-xl border border-slate-800 bg-slate-900/60 text-left transition flex flex-col gap-1 hover:border-slate-700">
+            <span class="text-xl">🎬</span>
+            <span class="font-bold text-xs text-white">Vídeo com Keyframes</span>
+            <span class="text-[11px] text-slate-400">Vídeo Aula Técnica com Slides</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- VISUALIZADOR DE ETAPAS DO PIPELINE (Passo a Passo Interativo) -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+        <!-- ETAPA 1: PARSE -->
+        <div id="step-box-parse" class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 transition-all duration-300">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-cyan-400 uppercase">1. Parse Multimodal</span>
+            <span id="badge-parse" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">AGUARDANDO</span>
+          </div>
+          <div class="text-sm font-bold text-white" id="parse-parser-name">PDFLayoutParser</div>
+          <div class="text-xs text-slate-400 mt-1" id="parse-parser-desc">Extração de texto, preservação de colunas e detecção de tabelas.</div>
+          
+          <!-- Metadados de Saída do Parse -->
+          <div class="mt-3 p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg text-xs space-y-1 font-mono">
+            <div class="text-slate-400">CanonicalDocument:</div>
+            <div class="text-cyan-300 truncate" id="parse-doc-id">doc_id: doc_fin_q3_2026</div>
+            <div class="text-slate-300" id="parse-elements-count">Elementos: 14 parágrafos, 2 tabelas</div>
+          </div>
+        </div>
+
+        <!-- ETAPA 2: CHUNKING -->
+        <div id="step-box-chunk" class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 transition-all duration-300">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-orange-400 uppercase">2. Chunking Engine</span>
+            <span id="badge-chunk" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">AGUARDANDO</span>
+          </div>
+          <div class="text-sm font-bold text-white" id="chunk-strategy-name">Parent-Child + Determinístico</div>
+          <div class="text-xs text-slate-400 mt-1" id="chunk-strategy-desc">Gera micro-chunks filhos vinculados ao macro-chunk pai para contexto.</div>
+          
+          <div class="mt-3 p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg text-xs space-y-1 font-mono">
+            <div class="text-slate-400">Estratégia & Hashing:</div>
+            <div class="text-orange-300" id="chunk-id-sample">UUIDv5: c7e1f42a-89b1...</div>
+            <div class="text-slate-300" id="chunk-stats">Parent: 1500 chars | 4 Filhos: 350 chars</div>
+          </div>
+        </div>
+
+        <!-- ETAPA 3: ACL & GOVERNANÇA -->
+        <div id="step-box-acl" class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 transition-all duration-300">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-emerald-400 uppercase">3. Governança ACL</span>
+            <span id="badge-acl" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">AGUARDANDO</span>
+          </div>
+          <div class="text-sm font-bold text-white">Fail-Closed Enforcement</div>
+          <div class="text-xs text-slate-400 mt-1">Carimbo de Tenant e Principals antes de indexar. Zero-bypass garantido.</div>
+          
+          <div class="mt-3 p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg text-xs space-y-1 font-mono">
+            <div class="text-slate-400">Tags de Permissão:</div>
+            <div class="text-emerald-300" id="acl-tenant">tenant_id: tenant_acme</div>
+            <div class="text-slate-300" id="acl-principals">principals: [user:cieco, group:financeiro]</div>
+          </div>
+        </div>
+
+        <!-- ETAPA 4: ARMAZENAMENTO -->
+        <div id="step-box-store" class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 transition-all duration-300">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-purple-400 uppercase">4. Onde está Gravando?</span>
+            <span id="badge-store" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">AGUARDANDO</span>
+          </div>
+          <div class="text-sm font-bold text-white">Multi-Engine Persistence</div>
+          <div class="text-xs text-slate-400 mt-1">Gravação coordenada em 4 storages com dual-write e cache.</div>
+          
+          <div class="mt-3 p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg text-xs space-y-1 font-mono">
+            <div class="text-purple-300">Qdrant: Vetores BGE-M3 (1024d)</div>
+            <div class="text-blue-300">Postgres: BM25 + tsvector + ACL</div>
+            <div class="text-emerald-300">Neo4j: Triplas & Nós de Grafo</div>
+            <div class="text-amber-300">MinIO: Binário Bruto (S3)</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- PAINEL DE INSPEÇÃO PROFUNDA (Código Canônico & Visualizador de Nós) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Visualizador do Chunk Canônico e Payload -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+              <span>📦</span> <span>Inspeção do Canonical Document & Chunks Gerados</span>
+            </h3>
+            <span class="text-xs font-mono text-cyan-400 bg-slate-800 px-2 py-0.5 rounded" id="inspect-format-badge">JSON Format</span>
+          </div>
+          <div class="flex-1 bg-slate-950 border border-slate-800/80 rounded-xl p-3 font-mono text-xs text-slate-300 overflow-x-auto max-h-80 custom-scroll">
+            <pre id="inspect-code-view">// Clique em "Executar Ingestão do Arquivo" para ver o payload canônico gerado aqui.</pre>
+          </div>
+        </div>
+
+        <!-- Terminal de Telemetria e Logs em Tempo Real -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Console de Telemetria & Eventos do Backend</span>
+            </h3>
+            <button onclick="clearConsole()" class="text-[11px] text-slate-400 hover:text-white transition font-mono">Limpar</button>
+          </div>
+          <div id="telemetry-terminal" class="flex-1 bg-slate-950 border border-slate-800/80 rounded-xl p-3 font-mono text-xs text-slate-400 overflow-y-auto max-h-80 custom-scroll space-y-1.5">
+            <div class="text-slate-500">// Pipeline pronto. Aguardando ingestão...</div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ========================================================================= -->
+    <!-- ABA 2: FLUXO DE BUSCA HÍBRIDA, ROTEAMENTO, RRF & SELF-RAG -->
+    <!-- ========================================================================= -->
+    <section id="section-search" class="space-y-6 hidden">
+
+      <!-- Barra de Consulta Interativa -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <span class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">Simulador de Recuperação Tri-Canal</span>
+            <h2 class="text-xl font-bold text-white">Faça uma Consulta e Veja o Roteamento e Fusão</h2>
+            <p class="text-xs text-slate-400">Veja o Soft Router decidindo entre Fast Path ou Decomposição, a busca paralela em 3 canais e o RRF ponderado.</p>
+          </div>
+          <!-- Controles de ACL para teste de segurança -->
+          <div class="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 text-xs">
+            <span class="text-slate-400 font-mono">Tenant:</span>
+            <select id="query-tenant" class="bg-slate-900 border border-slate-700 text-white rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-cyan-500">
+              <option value="tenant_acme">tenant_acme (Autorizado)</option>
+              <option value="tenant_externo">tenant_externo (Sem permissão)</option>
+            </select>
+            <span class="text-slate-400 font-mono ml-2">ACL:</span>
+            <select id="query-acl" class="bg-slate-900 border border-slate-700 text-white rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-cyan-500">
+              <option value="financeiro">group:financeiro (Completo)</option>
+              <option value="publico">user:publico (Restrito)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Input de Pergunta com Botão de Disparo -->
+        <div class="flex gap-2">
+          <input type="text" id="query-input" value="Qual o faturamento do Q3 e a margem ebitda apresentada na tabela?" placeholder="Digite uma consulta para pesquisar no corpus..." class="flex-1 bg-slate-950 border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 font-medium">
+          <button onclick="runSearchSimulation()" class="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black rounded-xl text-sm transition shadow-lg shadow-amber-500/25 flex items-center gap-2">
+            <span>🔎</span> <span>Recuperar & Responder</span>
+          </button>
+        </div>
+
+        <!-- Sugestões Rápidas de Consulta -->
+        <div class="flex flex-wrap items-center gap-2 pt-1 text-xs">
+          <span class="text-slate-400">Exemplos para testar:</span>
+          <button onclick="setQuery('Qual o faturamento do Q3 e a margem ebitda apresentada na tabela?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-medium transition">📊 Pergunta Tabular / Financeira</button>
+          <button onclick="setQuery('Como funciona o chaveamento de segurança com fail-closed ACL?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 font-medium transition">🛡️ Pergunta Conceitual / Segurança</button>
+          <button onclick="setQuery('Qual a relação entre a subsidiária Alfa e o holding de investimentos?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 font-medium transition">🕸️ Pergunta de Grafo / Multi-Hop</button>
+          <button onclick="setQuery('Relatório sigiloso sobre novos investimentos de 2027')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 font-medium transition">⛔ Teste de Bloqueio ACL</button>
+        </div>
+      </div>
+
+      <!-- PAINEL DE EXECUÇÃO DA BUSCA (Os 3 Canais em Paralelo) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- CANAL 1: DENSO (QDRANT) -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-cyan-400"></span>
+              <span class="font-bold text-sm text-white">Canal Denso (BGE-M3)</span>
+            </div>
+            <span class="text-xs font-mono text-cyan-400 bg-slate-800 px-2 py-0.5 rounded">Qdrant</span>
+          </div>
+          <p class="text-xs text-slate-400">Busca por similaridade de cosseno nos vetores de 1024 dimensões.</p>
+          <div id="results-dense" class="space-y-2 text-xs font-mono">
+            <div class="text-slate-500 italic p-3 text-center">// Aguardando execução da busca...</div>
+          </div>
+        </div>
+
+        <!-- CANAL 2: ESPARSO / LÉXICO (POSTGRES BM25) -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-blue-400"></span>
+              <span class="font-bold text-sm text-white">Canal Léxico (BM25)</span>
+            </div>
+            <span class="text-xs font-mono text-blue-400 bg-slate-800 px-2 py-0.5 rounded">PostgreSQL</span>
+          </div>
+          <p class="text-xs text-slate-400">Matching exato de palavras-chave, códigos fiscais e termos raros.</p>
+          <div id="results-bm25" class="space-y-2 text-xs font-mono">
+            <div class="text-slate-500 italic p-3 text-center">// Aguardando execução da busca...</div>
+          </div>
+        </div>
+
+        <!-- CANAL 3: GRAFO DE CONHECIMENTO (NEO4J) -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+              <span class="font-bold text-sm text-white">Canal em Grafo (Graph RAG)</span>
+            </div>
+            <span class="text-xs font-mono text-emerald-400 bg-slate-800 px-2 py-0.5 rounded">Neo4j</span>
+          </div>
+          <p class="text-xs text-slate-400">Navegação em entidades, triplas (Sujeito-Predicado-Objeto) e saltos.</p>
+          <div id="results-graph" class="space-y-2 text-xs font-mono">
+            <div class="text-slate-500 italic p-3 text-center">// Aguardando execução da busca...</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FUSÃO RRF PONDERADA & CROSS-ENCODER RERANKING -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Tabela do RRF Calculado -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+              <span>⚖️</span> <span>Fusão RRF Ponderada: Score = Σ [ wi / (k + ranki) ]</span>
+            </h3>
+            <span class="text-xs font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded">k = 60</span>
+          </div>
+          <p class="text-xs text-slate-400">Combinação matemática dos três canais antes de submeter ao Cross-Encoder.</p>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="p-2">Chunk ID</th>
+                  <th class="p-2">Rank Denso</th>
+                  <th class="p-2">Rank BM25</th>
+                  <th class="p-2">Rank Grafo</th>
+                  <th class="p-2 text-right">RRF Score</th>
+                </tr>
+              </thead>
+              <tbody id="rrf-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                <tr>
+                  <td colspan="5" class="p-3 text-center text-slate-500 italic">// Execute a busca para calcular o ranking fundido.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Resposta Final com Self-RAG e Citações -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+              <span>🤖</span> <span>Geração com Claude 3.5 Sonnet & Self-RAG</span>
+            </h3>
+            <div id="self-rag-badge" class="text-xs font-mono px-2.5 py-0.5 rounded bg-slate-800 text-slate-400">
+              STATUS: IDLE
+            </div>
+          </div>
+
+          <!-- Caixa de Resposta -->
+          <div class="flex-1 bg-slate-950 border border-slate-800/80 rounded-xl p-4 text-xs text-slate-200 leading-relaxed font-sans space-y-2 overflow-y-auto max-h-72 custom-scroll" id="answer-content">
+            <p class="text-slate-500 italic font-mono">// A resposta gerada contextualizada aparecerá aqui acompanhada das citações de evidência e validação de suficiência.</p>
+          </div>
+
+          <!-- Métricas de Custo e Latência -->
+          <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
+            <span id="metric-latency">Latência: -- ms</span>
+            <span id="metric-tokens">Tokens: -- (Prompt + Completion)</span>
+            <span id="metric-cost">Custo: \$0.0000</span>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ========================================================================= -->
+    <!-- ABA 3: ARQUITETURA GERAL & INFRAESTRUTURA -->
+    <!-- ========================================================================= -->
+    <section id="section-arch" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+        <div>
+          <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">Topologia de Infraestrutura</span>
+          <h2 class="text-xl font-bold text-white mt-1">Como os Serviços se Conectam em Produção</h2>
+          <p class="text-xs text-slate-400">Todos os serviços orquestrados via Docker Compose, com isolamento e tolerância a falhas.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Qdrant -->
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-cyan-400">Qdrant Vector DB</span>
+              <span class="text-[10px] font-mono bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded">Porta 6333</span>
+            </div>
+            <p class="text-xs text-slate-400">Armazena vetores densos de 1024 dimensões com HNSW otimizado e payload com metadados de ACL.</p>
+          </div>
+
+          <!-- PostgreSQL -->
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-blue-400">PostgreSQL 16</span>
+              <span class="text-[10px] font-mono bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">Porta 5432</span>
+            </div>
+            <p class="text-xs text-slate-400">Catálogo canônico, índice de busca léxica BM25 (`tsvector`), integridade referencial e auditoria.</p>
+          </div>
+
+          <!-- Neo4j -->
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-emerald-400">Neo4j 5 Graph DB</span>
+              <span class="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded">Portas 7474 / 7687</span>
+            </div>
+            <p class="text-xs text-slate-400">Base de conhecimento em grafo: nós de entidades, triplas semânticas e relações interconectadas.</p>
+          </div>
+
+          <!-- Redis -->
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-rose-400">Redis 7</span>
+              <span class="text-[10px] font-mono bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded">Porta 6379</span>
+            </div>
+            <p class="text-xs text-slate-400">Cache de alta performance para embeddings pré-calculados e respostas com TTL inteligente.</p>
+          </div>
+
+          <!-- MinIO -->
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-amber-400">MinIO (S3)</span>
+              <span class="text-[10px] font-mono bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded">Portas 9000 / 9001</span>
+            </div>
+            <p class="text-xs text-slate-400">Armazenamento de objetos compatível com AWS S3 para PDFs, áudios, vídeos e imagens originais.</p>
+          </div>
+
+          <!-- Claude LLM -->
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-purple-400">Claude 3.5 Sonnet</span>
+              <span class="text-[10px] font-mono bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded">Anthropic API</span>
+            </div>
+            <p class="text-xs text-slate-400">Síntese de respostas aumentadas por contexto, validação de auto-avaliação e visão multimodal.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- RODAPÉ -->
+  <footer class="bg-slate-900 border-t border-slate-800 px-4 py-4 text-center text-xs text-slate-500">
+    Arquitetura RAG Multimodal & Híbrida — Desenvolvido com Python, Qdrant, PostgreSQL, Neo4j e Claude 3.5 Sonnet.
+  </footer>
+
+  <!-- SCRIPT DE SIMULAÇÃO E INTERATIVIDADE -->
+  <script>
+    // Estado Atual da Aplicação
+    let currentInput = "pdf";
+    let isProcessing = false;
+
+    // Dados de Amostras de Entrada
+    const SAMPLES = {
+      pdf: {
+        parser: "PDFLayoutParser (PyPDF / pdfplumber)",
+        desc: "Detecta colunas, cabeçalhos, rodapés e converte tabelas em Markdown.",
+        doc_id: "doc_fin_q3_relatorio_2026.pdf",
+        stats: "14 seções, 2 tabelas estruturadas, 4 figuras",
+        strategy: "Parent-Child (1500 chars pai, 350 chars filho)",
+        sampleChunk: {
+          chunk_id: "urn:uuid5:chunk_fin_q3_001",
+          parent_chunk_id: "urn:uuid5:parent_fin_q3_00",
+          doc_id: "doc_fin_q3_relatorio_2026.pdf",
+          content_type: "table_and_text",
+          content: "Tabela 3.1 - Resultados Q3: Receita Líquida R$ 450M (+18% YoY). Margem EBITDA ajustada de 32.4%. Custos operacionais reduzidos em R$ 12M após automação de processos.",
+          metadata: {
+            page: 4,
+            section: "Desempenho Financeiro",
+            tenant_id: "tenant_acme",
+            principals: ["user:cieco", "group:financeiro"]
+          },
+          embedding_preview: "[0.0421, -0.0892, 0.1245, ... 1024 dims BGE-M3]"
+        }
+      },
+      xlsx: {
+        parser: "XLSXTableParser (openpyxl / pandas)",
+        desc: "Preserva formato matricial, nomes de colunas e metadados de abas.",
+        doc_id: "balancete_financeiro_consolidado.xlsx",
+        stats: "4 abas (DRE, Fluxo de Caixa, Balanço, Capex), 280 células",
+        strategy: "Table-Row Contextual Chunking com cabeçalhos anexados",
+        sampleChunk: {
+          chunk_id: "urn:uuid5:chunk_xlsx_row_42",
+          parent_chunk_id: "urn:uuid5:parent_xlsx_dre",
+          doc_id: "balancete_financeiro_consolidado.xlsx",
+          content_type: "structured_table_row",
+          content: "Linha [DRE - Outubro]: Centro de Custo: TI & Cloud | Categoria: Qdrant Cloud | Valor: R$ 14.500,00 | Status: Liquidado.",
+          metadata: {
+            sheet: "DRE",
+            row_index: 42,
+            tenant_id: "tenant_acme",
+            principals: ["user:cieco", "group:financeiro"]
+          },
+          embedding_preview: "[0.0124, 0.0911, -0.0345, ... 1024 dims BGE-M3]"
+        }
+      },
+      image: {
+        parser: "ImageParser (Tesseract OCR + Claude 3.5 Vision)",
+        desc: "Extração textual de diagramas via OCR e geração de descrição visual semântica.",
+        doc_id: "arquitetura_nuvem_diagram.png",
+        stats: "Resolução 1920x1080, 12 blocos de OCR, 1 descrição multimodal",
+        strategy: "Multimodal Dual Representation (Texto OCR + Caption Semântico)",
+        sampleChunk: {
+          chunk_id: "urn:uuid5:chunk_img_vision_01",
+          parent_chunk_id: "urn:uuid5:parent_img_root",
+          doc_id: "arquitetura_nuvem_diagram.png",
+          content_type: "visual_caption_and_ocr",
+          content: "Descrição Visual: Diagrama de nuvem híbrida conectando API Gateway ao cluster de microsserviços via gRPC. OCR detectado: [VPC-Prod, 10.0.0.0/16, Multi-AZ, LoadBalancer-External].",
+          metadata: {
+            format: "PNG",
+            ocr_engine: "tesseract_v5",
+            vision_model: "claude-3-5-sonnet",
+            tenant_id: "tenant_acme",
+            principals: ["user:cieco", "group:engenharia"]
+          },
+          embedding_preview: "[-0.0512, 0.1142, 0.0822, ... 1024 dims BGE-M3]"
+        }
+      },
+      audio: {
+        parser: "AudioParser (OpenAI Whisper + Diarization)",
+        desc: "Transcrição com divisão temporal por frases e identificação de locutores.",
+        doc_id: "reuniao_estrategica_q3.mp3",
+        stats: "Duração 34min 20s, 2 locutores, 480 segmentos temporais",
+        strategy: "Temporal Window Chunking (60s com 10s de sobreposição)",
+        sampleChunk: {
+          chunk_id: "urn:uuid5:chunk_audio_seg_12",
+          parent_chunk_id: "urn:uuid5:parent_audio_meeting",
+          doc_id: "reuniao_estrategica_q3.mp3",
+          content_type: "transcribed_speech",
+          content: "[00:12:15 - 00:13:10] Locutor 1 (CTO): A migração para o Qdrant com busca híbrida diminuiu nosso tempo de resposta em 65% sem aumentar o custo de infraestrutura.",
+          metadata: {
+            time_start: "00:12:15",
+            time_end: "00:13:10",
+            speaker: "CTO",
+            tenant_id: "tenant_acme",
+            principals: ["user:cieco", "group:diretoria"]
+          },
+          embedding_preview: "[0.0381, -0.0422, 0.0719, ... 1024 dims BGE-M3]"
+        }
+      },
+      video: {
+        parser: "VideoParser (OpenCV Keyframes + Whisper Audio)",
+        desc: "Amostragem de frames visuais relevantes com áudio sincronizado.",
+        doc_id: "tutorial_arquitetura_rag.mp4",
+        stats: "Duração 15min, 24 keyframes extraídos, transcrição alinhada",
+        strategy: "Synchronized Video Chunk (Frame Snapshot + Transcrição)",
+        sampleChunk: {
+          chunk_id: "urn:uuid5:chunk_video_kf_08",
+          parent_chunk_id: "urn:uuid5:parent_video_main",
+          doc_id: "tutorial_arquitetura_rag.mp4",
+          content_type: "video_keyframe_transcript",
+          content: "Slide Visual: 'Reciprocal Rank Fusion Formula: Score = Σ w_i / (k + rank_i)'. Áudio: 'Nesta fórmula, o parâmetro k suaviza o impacto de posições extremas'.",
+          metadata: {
+            timestamp: "00:04:32",
+            keyframe_file: "kf_000432.jpg",
+            tenant_id: "tenant_acme",
+            principals: ["user:cieco", "group:engenharia"]
+          },
+          embedding_preview: "[0.0912, 0.0152, -0.0881, ... 1024 dims BGE-M3]"
+        }
+      }
+    };
+
+    // Alternar Abas
+    function switchMainTab(tab) {
+      document.getElementById("section-ingest").classList.add("hidden");
+      document.getElementById("section-search").classList.add("hidden");
+      document.getElementById("section-arch").classList.add("hidden");
+
+      document.getElementById("tab-btn-ingest").className = "px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5";
+      document.getElementById("tab-btn-search").className = "px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5";
+      document.getElementById("tab-btn-arch").className = "px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5";
+
+      if (tab === "ingest") {
+        document.getElementById("section-ingest").classList.remove("hidden");
+        document.getElementById("tab-btn-ingest").className = "px-3.5 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-bold transition flex items-center gap-1.5 shadow-md";
+      } else if (tab === "search") {
+        document.getElementById("section-search").classList.remove("hidden");
+        document.getElementById("tab-btn-search").className = "px-3.5 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold transition flex items-center gap-1.5 shadow-md";
+      } else {
+        document.getElementById("section-arch").classList.remove("hidden");
+        document.getElementById("tab-btn-arch").className = "px-3.5 py-1.5 rounded-lg bg-purple-500 text-slate-950 font-bold transition flex items-center gap-1.5 shadow-md";
+      }
+    }
+
+    // Selecionar Amostra de Arquivo
+    function selectInputSample(type) {
+      currentInput = type;
+      document.querySelectorAll(".sample-btn").forEach(btn => {
+        btn.className = "sample-btn p-3 rounded-xl border border-slate-800 bg-slate-900/60 text-left transition flex flex-col gap-1 hover:border-slate-700";
+      });
+      const activeBtn = document.getElementById(`sample-${type}`);
+      activeBtn.className = "sample-btn p-3 rounded-xl border border-cyan-500/80 bg-cyan-500/10 text-left transition flex flex-col gap-1";
+
+      const data = SAMPLES[type];
+      document.getElementById("parse-parser-name").textContent = data.parser.split(" ")[0];
+      document.getElementById("parse-parser-desc").textContent = data.desc;
+      document.getElementById("parse-doc-id").textContent = `doc_id: ${data.doc_id}`;
+      document.getElementById("parse-elements-count").textContent = `Elementos: ${data.stats}`;
+      document.getElementById("chunk-strategy-name").textContent = data.strategy.split(" (")[0];
+      document.getElementById("chunk-strategy-desc").textContent = data.strategy;
+      document.getElementById("chunk-id-sample").textContent = `UUIDv5: ${data.sampleChunk.chunk_id}`;
+    }
+
+    // Terminal Logger
+    function logTerminal(msg, color="text-slate-300") {
+      const term = document.getElementById("telemetry-terminal");
+      const time = new Date().toISOString().split("T")[1].split(".")[0];
+      const div = document.createElement("div");
+      div.className = `${color} leading-relaxed`;
+      div.innerHTML = `<span class="text-slate-600">[${time}]</span> ${msg}`;
+      term.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function clearConsole() {
+      document.getElementById("telemetry-terminal").innerHTML = '<div class="text-slate-500">// Console reiniciado.</div>';
+    }
+
+    // Executar Simulação de Ingestão
+    function runIngestionSimulation() {
+      if (isProcessing) return;
+      isProcessing = true;
+      const data = SAMPLES[currentInput];
+
+      // Reset badges
+      ["parse", "chunk", "acl", "store"].forEach(id => {
+        document.getElementById(`badge-${id}`).textContent = "PROCESSANDO...";
+        document.getElementById(`badge-${id}`).className = "text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 animate-pulse";
+      });
+
+      logTerminal(`🚀 Iniciando pipeline de ingestão para '${data.doc_id}'...`, "text-cyan-400 font-bold");
+
+      // Passo 1: Parse
+      setTimeout(() => {
+        document.getElementById("badge-parse").textContent = "CONCLUÍDO (28ms)";
+        document.getElementById("badge-parse").className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold";
+        logTerminal(`[1/4 PARSE] Documento lido via ${data.parser}. Modelo Canônico instanciado.`, "text-cyan-300");
+      }, 500);
+
+      // Passo 2: Chunking
+      setTimeout(() => {
+        document.getElementById("badge-chunk").textContent = "CONCLUÍDO (14ms)";
+        document.getElementById("badge-chunk").className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold";
+        logTerminal(`[2/4 CHUNKING] Gerados chunks determinísticos com UUIDv5: ${data.sampleChunk.chunk_id}`, "text-orange-300");
+      }, 1000);
+
+      // Passo 3: ACL
+      setTimeout(() => {
+        document.getElementById("badge-acl").textContent = "TAGGED & ENFORCED";
+        document.getElementById("badge-acl").className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold";
+        logTerminal(`[3/4 ACL] Tags aplicadas: tenant_id='${data.sampleChunk.metadata.tenant_id}' e ${data.sampleChunk.metadata.principals.length} principals autorizados.`, "text-emerald-300");
+      }, 1500);
+
+      // Passo 4: Storage
+      setTimeout(() => {
+        document.getElementById("badge-store").textContent = "INDEXADO (4 BASES)";
+        document.getElementById("badge-store").className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold";
+        logTerminal(`[4/4 STORAGE] Vetor 1024d gravado no Qdrant. BM25 gravado no Postgres. Triplas no Neo4j. Binário no MinIO.`, "text-purple-300");
+
+        // Exibir Payload JSON
+        document.getElementById("inspect-code-view").textContent = JSON.stringify(data.sampleChunk, null, 2);
+        isProcessing = false;
+        logTerminal(`✅ Ingestão finalizada com sucesso com ID determinístico.`, "text-emerald-400 font-bold");
+      }, 2000);
+    }
+
+    // Definir Consulta Rápida
+    function setQuery(q) {
+      document.getElementById("query-input").value = q;
+    }
+
+    // Executar Simulação de Busca
+    function runSearchSimulation() {
+      const q = document.getElementById("query-input").value;
+      const tenant = document.getElementById("query-tenant").value;
+      const acl = document.getElementById("query-acl").value;
+
+      const resultsDense = document.getElementById("results-dense");
+      const resultsBm25 = document.getElementById("results-bm25");
+      const resultsGraph = document.getElementById("results-graph");
+      const rrfTable = document.getElementById("rrf-table-body");
+      const answerBox = document.getElementById("answer-content");
+      const selfRagBadge = document.getElementById("self-rag-badge");
+
+      // Verificação de Bloqueio por ACL
+      if (tenant === "tenant_externo" || q.includes("sigiloso")) {
+        selfRagBadge.textContent = "RECUSA SEGURA (ACL FAIL-CLOSED)";
+        selfRagBadge.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold";
+        
+        resultsDense.innerHTML = '<div class="p-3 bg-rose-950/40 border border-rose-800/80 rounded text-rose-300">⛔ Zero chunks retornados. Pré-filtro de Tenant rejeitou o acesso.</div>';
+        resultsBm25.innerHTML = '<div class="p-3 bg-rose-950/40 border border-rose-800/80 rounded text-rose-300">⛔ Zero chunks retornados. Filtro tsvector restrito por tenant_id.</div>';
+        resultsGraph.innerHTML = '<div class="p-3 bg-rose-950/40 border border-rose-800/80 rounded text-rose-300">⛔ Zero nós retornados. Cypher query sem permissão de leitura.</div>';
+
+        rrfTable.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-rose-400 font-bold">Nenhum resultado atingiu o limiar de autorização (Fail-Closed).</td></tr>';
+
+        answerBox.innerHTML = `
+          <div class="p-3 bg-rose-900/20 border border-rose-700/50 rounded-lg text-rose-200">
+            <strong>Acesso Negado (403 Forbidden - Fail Closed ACL):</strong><br>
+            A consulta foi interrompida na camada de índice antes de qualquer geração. O usuário atual não possui as permissões necessárias para o <code>tenant_id: ${tenant}</code> ou para a categoria de confidencialidade solicitada.
+          </div>
+        `;
+        return;
+      }
+
+      // Caso Normal: Busca Tri-Canal
+      selfRagBadge.textContent = "SUFICIENTE (CONFIDENCE: 94.2%)";
+      selfRagBadge.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold";
+
+      resultsDense.innerHTML = `
+        <div class="p-2.5 bg-slate-950 border border-cyan-500/40 rounded space-y-1">
+          <div class="flex justify-between text-cyan-300 font-bold"><span>#1 chunk_fin_q3_001</span><span>Score: 0.884</span></div>
+          <div class="text-slate-300 text-[11px]">Tabela 3.1 - Resultados Q3: Receita Líquida R$ 450M (+18% YoY). Margem EBITDA 32.4%.</div>
+        </div>
+        <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1">
+          <div class="flex justify-between text-slate-400"><span>#2 chunk_dre_totais</span><span>Score: 0.792</span></div>
+          <div class="text-slate-400 text-[11px]">Balanço Patrimonial Consolidado Q3 e despesas operacionais.</div>
+        </div>
+      `;
+
+      resultsBm25.innerHTML = `
+        <div class="p-2.5 bg-slate-950 border border-blue-500/40 rounded space-y-1">
+          <div class="flex justify-between text-blue-300 font-bold"><span>#1 chunk_fin_q3_001</span><span>BM25: 14.82</span></div>
+          <div class="text-slate-300 text-[11px]">Match exato: 'faturamento', 'Q3', 'margem', 'ebitda'.</div>
+        </div>
+        <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1">
+          <div class="flex justify-between text-slate-400"><span>#2 chunk_glossario_fin</span><span>BM25: 9.15</span></div>
+          <div class="text-slate-400 text-[11px]">Definição de EBITDA e cálculo contábil corporativo.</div>
+        </div>
+      `;
+
+      resultsGraph.innerHTML = `
+        <div class="p-2.5 bg-slate-950 border border-emerald-500/40 rounded space-y-1">
+          <div class="flex justify-between text-emerald-300 font-bold"><span>#1 [Acme Corp] -[:REPORTA]-> [Q3]</span><span>Tripla</span></div>
+          <div class="text-slate-300 text-[11px]">Nó [Q3_Resultados] conectado a [Margem_EBITDA: 32.4%].</div>
+        </div>
+        <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1">
+          <div class="flex justify-between text-slate-400"><span>#2 [Acme Corp] -[:POSSUI]-> [Subsidiaria]</span><span>1-Hop</span></div>
+          <div class="text-slate-400 text-[11px]">Entidade subsidiária contribuiu com R$ 85M do total.</div>
+        </div>
+      `;
+
+      // Preenchimento do RRF
+      rrfTable.innerHTML = `
+        <tr class="bg-purple-950/20 font-bold">
+          <td class="p-2 text-cyan-300">chunk_fin_q3_001</td>
+          <td class="p-2 text-cyan-400">#1 (w:1.2)</td>
+          <td class="p-2 text-blue-400">#1 (w:1.0)</td>
+          <td class="p-2 text-emerald-400">#1 (w:0.8)</td>
+          <td class="p-2 text-right text-purple-300">0.04918 (Top 1)</td>
+        </tr>
+        <tr>
+          <td class="p-2 text-slate-400">chunk_dre_totais</td>
+          <td class="p-2 text-cyan-400">#2</td>
+          <td class="p-2 text-slate-600">--</td>
+          <td class="p-2 text-slate-600">--</td>
+          <td class="p-2 text-right">0.01935</td>
+        </tr>
+        <tr>
+          <td class="p-2 text-slate-400">chunk_glossario_fin</td>
+          <td class="p-2 text-slate-600">--</td>
+          <td class="p-2 text-blue-400">#2</td>
+          <td class="p-2 text-slate-600">--</td>
+          <td class="p-2 text-right">0.01612</td>
+        </tr>
+      `;
+
+      // Resposta Gerada
+      answerBox.innerHTML = `
+        <div class="space-y-3">
+          <p>
+            Com base nos relatórios financeiros consolidados do <strong>Q3 2026</strong> [Doc: <code>doc_fin_q3_relatorio_2026.pdf</code>, Pág. 4]:
+          </p>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Faturamento Líquido:</strong> O faturamento alcançou <strong>R$ 450 Milhões</strong>, representando um crescimento de <strong>18% YoY</strong> em relação ao mesmo período do ano anterior.</li>
+            <li><strong>Margem EBITDA Ajustada:</strong> Foi apurada em <strong>32,4%</strong>.</li>
+            <li><strong>Ganhos Operacionais:</strong> Houve uma redução de custos de <strong>R$ 12 Milhões</strong> decorrente da automação de processos internos e ganho de eficiência.</li>
+          </ul>
+          <div class="p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-[11px] text-slate-400">
+            <strong>Evidências Utilizadas:</strong> [1] Tabela 3.1 da Seção Desempenho Financeiro (Qdrant + BM25) | [2] Nó de Relações de Grafo Neo4j: <code>(Acme Corp)-[:REPORTA]->(Q3)</code>.
+          </div>
+        </div>
+      `;
+
+      // Métricas
+      document.getElementById("metric-latency").textContent = "Latência: 184 ms (Tri-Canal Paralelo)";
+      document.getElementById("metric-tokens").textContent = "Tokens: 420 in / 112 out";
+      document.getElementById("metric-cost").textContent = "Custo: $0.0014";
+    }
+
+    // Inicialização
+    selectInputSample("pdf");
+  </script>
+</body>
+</html>
