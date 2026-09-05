@@ -245,6 +245,17 @@ def upload_image_to_storage(
     Salva os bytes da imagem no MinIO sob o caminho: images/{image_id}.{ext}.
     Retorna a URI canônica minio://... ou None em caso de falha.
     """
+    import socket
+    endpoint = settings.minio_endpoint or "localhost:9000"
+    try:
+        host, port_str = endpoint.split(":", 1) if ":" in endpoint else (endpoint, "9000")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(0.15)
+        sock.connect((host, int(port_str)))
+        sock.close()
+    except Exception:
+        return None
+
     try:
         from minio import Minio
 
