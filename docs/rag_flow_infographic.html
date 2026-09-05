@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluxo RAG Multimodal (5 Segundos)</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); border-color: #38bdf8; }
+      50% { box-shadow: 0 0 25px rgba(56, 189, 248, 0.8); border-color: #7dd3fc; }
+    }
+    .active-card {
+      animation: pulseGlow 1.5s infinite;
+      transform: translateY(-2px);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen p-4 md:p-6 custom-scrollbar">
+
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Header com Badges e Cronômetro -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-5 rounded-2xl backdrop-blur-md shadow-2xl">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+            Pipeline RAG Multimodal & Híbrido
+          </span>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+            Tri-Canal + ACL
+          </span>
+        </div>
+        <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          Fluxo Arquitetural Completo em 5 Segundos
+        </h1>
+        <p class="text-xs md:text-sm text-slate-400">
+          Parse Multimodal ➔ Chunking ➔ Ingestão & ACL ➔ Transformação 3-Index ➔ Busca Híbrida RRF
+        </p>
+      </div>
+
+      <!-- Display de Tempo e Controles Rápidos -->
+      <div class="flex items-center gap-3 self-end md:self-center">
+        <div class="text-right">
+          <div class="text-xs text-slate-400 font-medium">TEMPO DO VÍDEO</div>
+          <div id="time-display" class="font-mono text-2xl font-black text-amber-400">0.00s / 5.00s</div>
+        </div>
+        <div class="flex items-center gap-1.5 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700">
+          <button id="btn-play" class="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-lg font-bold text-xs transition flex items-center gap-1 shadow-lg shadow-cyan-500/20">
+            <span id="play-icon">▶</span> <span id="play-text">Iniciar</span>
+          </button>
+          <button id="btn-reset" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold transition" title="Reiniciar">
+            ↺
+          </button>
+          <button id="btn-record" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-lg shadow-rose-600/20" title="Gravar vídeo WebM">
+            ⏺ <span>Gravar Vídeo</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Timeline e Barra de Progresso Interativa -->
+    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-3">
+      <div class="flex justify-between items-center text-xs font-semibold text-slate-400">
+        <span id="stage-0-label" class="cursor-pointer hover:text-cyan-400 transition" onclick="jumpTo(0.5)">0s: Parse</span>
+        <span id="stage-1-label" class="cursor-pointer hover:text-orange-400 transition" onclick="jumpTo(1.5)">1s: Chunking</span>
+        <span id="stage-2-label" class="cursor-pointer hover:text-emerald-400 transition" onclick="jumpTo(2.5)">2s: Ingestão/ACL</span>
+        <span id="stage-3-label" class="cursor-pointer hover:text-purple-400 transition" onclick="jumpTo(3.5)">3s: Transformação</span>
+        <span id="stage-4-label" class="cursor-pointer hover:text-amber-400 transition" onclick="jumpTo(4.5)">4s-5s: Busca Híbrida</span>
+      </div>
+
+      <!-- Barra de Progresso -->
+      <div class="relative w-full h-3 bg-slate-800 rounded-full overflow-hidden cursor-pointer" id="progress-bar-container">
+        <div id="progress-bar" class="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-amber-400 rounded-full transition-all duration-75" style="width: 0%"></div>
+        <!-- Marcadores verticais -->
+        <div class="absolute top-0 left-[20%] w-0.5 h-full bg-slate-700/80"></div>
+        <div class="absolute top-0 left-[40%] w-0.5 h-full bg-slate-700/80"></div>
+        <div class="absolute top-0 left-[60%] w-0.5 h-full bg-slate-700/80"></div>
+        <div class="absolute top-0 left-[80%] w-0.5 h-full bg-slate-700/80"></div>
+      </div>
+
+      <!-- Velocidades -->
+      <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
+        <div class="flex items-center gap-2">
+          <span>Velocidade:</span>
+          <button onclick="setSpeed(0.5)" class="speed-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">0.5x</button>
+          <button onclick="setSpeed(1.0)" class="speed-btn px-2 py-0.5 rounded bg-cyan-500/30 text-cyan-300 font-bold">1x</button>
+          <button onclick="setSpeed(1.5)" class="speed-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">1.5x</button>
+        </div>
+        <div id="recording-status" class="hidden items-center gap-2 text-rose-400 font-semibold animate-pulse">
+          <span class="w-2 h-2 rounded-full bg-rose-500"></span> Gravando vídeo (5s)...
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas de Animação de Fluxo e Partículas -->
+    <div class="relative bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+      <canvas id="flowCanvas" class="w-full h-48 md:h-64 block"></canvas>
+      <div class="absolute top-3 left-4 text-xs font-mono bg-slate-900/80 px-2 py-1 rounded border border-slate-800 text-slate-300 pointer-events-none">
+        Simulação Visual de Partículas em Alta Velocidade
+      </div>
+    </div>
+
+    <!-- Grid dos 5 Estágios (Cards com Estado Dinâmico) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+
+      <!-- Card 1: Parse -->
+      <div id="card-0" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-cyan-500/50" onclick="jumpTo(0.5)">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono font-bold text-cyan-400">0.0s - 1.0s</span>
+          <span class="text-lg">📄</span>
+        </div>
+        <h3 class="font-bold text-sm text-white mb-1">1. Parse Multimodal</h3>
+        <p class="text-xs text-slate-400 mb-3">Unificação no CanonicalDocument</p>
+        <ul class="text-xs space-y-1 text-slate-300">
+          <li>• <span class="font-semibold text-cyan-300">PDF</span> Layout-aware</li>
+          <li>• <span class="font-semibold text-cyan-300">XLSX</span> Tabelas</li>
+          <li>• <span class="font-semibold text-cyan-300">IMG</span> OCR + Vision</li>
+          <li>• <span class="font-semibold text-cyan-300">Áudio</span> Whisper</li>
+          <li>• <span class="font-semibold text-cyan-300">Vídeo</span> Keyframes</li>
+        </ul>
+      </div>
+
+      <!-- Card 2: Chunking -->
+      <div id="card-1" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-orange-500/50" onclick="jumpTo(1.5)">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono font-bold text-orange-400">1.0s - 2.0s</span>
+          <span class="text-lg">🧩</span>
+        </div>
+        <h3 class="font-bold text-sm text-white mb-1">2. Chunking Engine</h3>
+        <p class="text-xs text-slate-400 mb-3">Divisão Estratégica</p>
+        <ul class="text-xs space-y-1 text-slate-300">
+          <li>• <span class="font-semibold text-orange-300">Parent-Child</span></li>
+          <li>• <span class="font-semibold text-orange-300">UUIDv5</span> Recursivo</li>
+          <li>• <span class="font-semibold text-orange-300">Semântico</span> (Cosseno)</li>
+          <li>• <span class="font-semibold text-orange-300">Multi-Vector</span> Resumos</li>
+          <li>• <span class="font-semibold text-orange-300">Multimodal</span> Sync</li>
+        </ul>
+      </div>
+
+      <!-- Card 3: Ingestão & ACL -->
+      <div id="card-2" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-emerald-500/50" onclick="jumpTo(2.5)">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono font-bold text-emerald-400">2.0s - 3.0s</span>
+          <span class="text-lg">🛡️</span>
+        </div>
+        <h3 class="font-bold text-sm text-white mb-1">3. Ingestão & ACL</h3>
+        <p class="text-xs text-slate-400 mb-3">Segurança Fail-Closed</p>
+        <ul class="text-xs space-y-1 text-slate-300">
+          <li>• <span class="font-semibold text-emerald-300">Tenant ID</span> Tagging</li>
+          <li>• <span class="font-semibold text-emerald-300">Filtro ACL</span> Pré-index</li>
+          <li>• <span class="font-semibold text-emerald-300">Content Hash</span> Único</li>
+          <li>• <span class="font-semibold text-emerald-300">Dependency</span> Graph</li>
+          <li>• <span class="font-semibold text-emerald-300">Zero-Bypass</span></li>
+        </ul>
+      </div>
+
+      <!-- Card 4: Transformação -->
+      <div id="card-3" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-purple-500/50" onclick="jumpTo(3.5)">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono font-bold text-purple-400">3.0s - 4.0s</span>
+          <span class="text-lg">⚡</span>
+        </div>
+        <h3 class="font-bold text-sm text-white mb-1">4. Transformação</h3>
+        <p class="text-xs text-slate-400 mb-3">3 Índices em Paralelo</p>
+        <ul class="text-xs space-y-1 text-slate-300">
+          <li>• <span class="font-semibold text-purple-300">BGE-M3</span> (Qdrant)</li>
+          <li>• <span class="font-semibold text-purple-300">BM25</span> (Postgres)</li>
+          <li>• <span class="font-semibold text-purple-300">Triplas</span> (Neo4j)</li>
+          <li>• <span class="font-semibold text-purple-300">Embedding</span> Cache</li>
+          <li>• <span class="font-semibold text-purple-300">Dual-Write</span></li>
+        </ul>
+      </div>
+
+      <!-- Card 5: Busca Híbrida & RRF -->
+      <div id="card-4" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-amber-500/50" onclick="jumpTo(4.5)">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono font-bold text-amber-400">4.0s - 5.0s</span>
+          <span class="text-lg">🎯</span>
+        </div>
+        <h3 class="font-bold text-sm text-white mb-1">5. Busca Híbrida</h3>
+        <p class="text-xs text-slate-400 mb-3">RRF + Rerank</p>
+        <ul class="text-xs space-y-1 text-slate-300">
+          <li>• <span class="font-semibold text-amber-300">Soft Router</span> (Fast/Full)</li>
+          <li>• <span class="font-semibold text-amber-300">ACL</span> Pré-Filtrada</li>
+          <li>• <span class="font-semibold text-amber-300">Fusão RRF</span> Ponderada</li>
+          <li>• <span class="font-semibold text-amber-300">Cross-Encoder</span></li>
+          <li>• <span class="font-semibold text-amber-300">Self-RAG</span> Eval</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Painel de Detalhes Atuais em Tempo Real -->
+    <div id="detail-panel" class="bg-slate-900 border-l-4 border-cyan-500 border-y border-r border-slate-800 p-5 rounded-xl shadow-xl transition-all">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-xs font-mono text-cyan-400 uppercase font-bold tracking-wider" id="detail-badge">ETAPA ATUAL</span>
+          <h2 class="text-lg font-bold text-white mt-0.5" id="detail-title">1. Parse Multimodal & Modelo Canônico</h2>
+        </div>
+        <div class="text-xs text-slate-400 font-mono" id="detail-window">0.00s - 1.00s</div>
+      </div>
+      <p class="text-sm text-slate-300 mt-2" id="detail-desc">
+        Documentos em PDF (com análise de layout de colunas e cabeçalhos), planilhas XLSX, imagens escaneadas via OCR/Visão Computacional e fluxos de áudio/vídeo transcrevidos via Whisper são normalizados no modelo canônico unificado com grafo de dependências.
+      </p>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4" id="detail-tags">
+        <!-- Injetado via JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Configurações do Pipeline de 5 Segundos
+    const DURATION = 5.0; // 5 segundos
+    let currentTime = 0;
+    let isPlaying = false;
+    let playbackSpeed = 1.0;
+    let lastTimestamp = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+
+    const STAGES_DATA = [
+      {
+        idx: 0,
+        title: "1. Parse Multimodal & Modelo Canônico",
+        window: "0.00s - 1.00s",
+        color: "#38bdf8",
+        borderClass: "border-cyan-500",
+        badge: "ETAPA 1 / 5",
+        desc: "Ingestão e extração de layouts de PDFs, tabelas em XLSX, OCR e descrição visual de imagens, transcrição Whisper de áudios e amostragem de keyframes de vídeos, consolidando todos no CanonicalDocument.",
+        tags: ["PDF Layout-Aware", "XLSX Tables", "OCR / Vision", "Whisper Audio", "Video Keyframes", "CanonicalDocument"]
+      },
+      {
+        idx: 1,
+        title: "2. Chunking Engine Estratégico",
+        window: "1.00s - 2.00s",
+        color: "#fb923c",
+        borderClass: "border-orange-500",
+        badge: "ETAPA 2 / 5",
+        desc: "Divisão do conteúdo em chunks preservando hierarquia e contexto: Parent-Child (chunks filhos para busca precisa e pais para contexto), fatias recursivas determinísticas com UUIDv5 e quebras semânticas por descontinuidade de cosseno.",
+        tags: ["Parent-Child Chunking", "UUIDv5 Determinístico", "Semantic Cosine Split", "Multi-Vector Summaries", "Multimodal Sync Chunks"]
+      },
+      {
+        idx: 2,
+        title: "3. Ingestão Segura & Governança (ACL)",
+        window: "2.00s - 3.00s",
+        color: "#34d399",
+        borderClass: "border-emerald-500",
+        badge: "ETAPA 3 / 5",
+        desc: "Tagging estrito de tenant_id e permissões de acesso (ACL). Garantia de isolamento multi-tenant fail-closed antes da geração de índices. Grafo de dependências e hashes determinísticos garantem reindexação incremental cirúrgica.",
+        tags: ["Tenant ID Isolation", "ACL Granular", "Fail-Closed Security", "Content Hash Deduplication", "Dependency Graph"]
+      },
+      {
+        idx: 3,
+        title: "4. Transformação & Indexação Tri-Canal",
+        window: "3.00s - 4.00s",
+        color: "#a855f7",
+        borderClass: "border-purple-500",
+        badge: "ETAPA 4 / 5",
+        desc: "Geração em paralelo de três representações: Vetor Denso BGE-M3 (1024 dims) para Qdrant, Vetor Esparso BM25/tsvector para PostgreSQL e triplas de entidades/relações para o Grafo Neo4j, com versionamento e cache de embeddings.",
+        tags: ["Qdrant (BGE-M3)", "PostgreSQL (BM25)", "Neo4j (Knowledge Graph)", "Embedding Cache", "Dual-Write Pipeline"]
+      },
+      {
+        idx: 4,
+        title: "5. Busca Híbrida, RRF & Cross-Encoder",
+        window: "4.00s - 5.00s",
+        color: "#facc15",
+        borderClass: "border-amber-500",
+        badge: "ETAPA 5 / 5",
+        desc: "Roteador suave classifica queries em Fast Path ou Full Path. Dispara busca simultânea em 3 canais com pré-filtro ACL obrigatório. Os resultados são unificados via Fusão RRF ponderada e refinados pelo BGE-Reranker-v2 com validação Self-RAG.",
+        tags: ["Soft Query Router", "ACL Pre-Filtering", "RRF Weighted Fusion", "BGE-Reranker-v2", "Self-RAG Evaluator"]
+      }
+    ];
+
+    // Elementos DOM
+    const timeDisplay = document.getElementById("time-display");
+    const progressBar = document.getElementById("progress-bar");
+    const progressContainer = document.getElementById("progress-bar-container");
+    const btnPlay = document.getElementById("btn-play");
+    const playText = document.getElementById("play-text");
+    const playIcon = document.getElementById("play-icon");
+    const btnReset = document.getElementById("btn-reset");
+    const btnRecord = document.getElementById("btn-record");
+    const recordingStatus = document.getElementById("recording-status");
+
+    const detailPanel = document.getElementById("detail-panel");
+    const detailBadge = document.getElementById("detail-badge");
+    const detailTitle = document.getElementById("detail-title");
+    const detailWindow = document.getElementById("detail-window");
+    const detailDesc = document.getElementById("detail-desc");
+    const detailTags = document.getElementById("detail-tags");
+
+    // Canvas setup
+    const canvas = document.getElementById("flowCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    // Partículas de fluxo
+    const particles = [];
+    for (let i = 0; i < 40; i++) {
+      particles.push({
+        x: Math.random() * 800,
+        y: 40 + Math.random() * 80,
+        speed: 1.5 + Math.random() * 2.5,
+        size: 2 + Math.random() * 3,
+        colorIndex: Math.floor(Math.random() * 5)
+      });
+    }
+
+    function getActiveStageIndex(t) {
+      if (t >= 5.0) return 4;
+      return Math.min(4, Math.floor(t));
+    }
+
+    function updateUI(activeIdx) {
+      const stage = STAGES_DATA[activeIdx];
+      
+      // Atualiza Cards
+      for (let i = 0; i < 5; i++) {
+        const card = document.getElementById(`card-${i}`);
+        if (i === activeIdx) {
+          card.className = `bg-slate-900/90 border-2 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-lg active-card`;
+          card.style.borderColor = stage.color;
+        } else {
+          card.className = `bg-slate-900/70 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-slate-700 opacity-70 hover:opacity-100`;
+          card.style.borderColor = "";
+        }
+      }
+
+      // Atualiza Painel de Detalhes
+      detailPanel.style.borderLeftColor = stage.color;
+      detailBadge.style.color = stage.color;
+      detailBadge.textContent = stage.badge;
+      detailTitle.textContent = stage.title;
+      detailWindow.textContent = stage.window;
+      detailDesc.textContent = stage.desc;
+
+      detailTags.innerHTML = stage.tags.map(tag => 
+        `<div class="bg-slate-800/80 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono flex items-center gap-1.5">
+           <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${stage.color}"></span>
+           <span>${tag}</span>
+         </div>`
+      ).join("");
+    }
+
+    function renderCanvas(w, h, activeIdx, t) {
+      ctx.clearRect(0, 0, w, h);
+
+      // Linha central do fluxo de dados
+      const centerY = h / 2;
+      const stepWidth = w / 5;
+
+      // Desenha trilho de dados
+      ctx.beginPath();
+      ctx.moveTo(stepWidth * 0.5, centerY);
+      ctx.lineTo(stepWidth * 4.5, centerY);
+      ctx.strokeStyle = "rgba(51, 65, 85, 0.6)";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Feixe de luz animado no trilho
+      const beamX = stepWidth * 0.5 + (currentTime / DURATION) * (stepWidth * 4);
+      const gradient = ctx.createRadialGradient(beamX, centerY, 0, beamX, centerY, 40);
+      gradient.addColorStop(0, STAGES_DATA[activeIdx].color);
+      gradient.addColorStop(1, "transparent");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(beamX - 40, centerY - 20, 80, 40);
+
+      // Desenha 5 Estações / Hubs
+      for (let i = 0; i < 5; i++) {
+        const cx = stepWidth * 0.5 + i * stepWidth;
+        const cy = centerY;
+        const isCurrent = (i === activeIdx);
+        const isPassed = (i < activeIdx);
+        const stageColor = STAGES_DATA[i].color;
+
+        // Círculo externo
+        ctx.beginPath();
+        ctx.arc(cx, cy, isCurrent ? 24 : 16, 0, Math.PI * 2);
+        ctx.fillStyle = isCurrent ? stageColor : (isPassed ? "rgba(71, 85, 105, 0.8)" : "rgba(30, 41, 59, 0.9)");
+        ctx.fill();
+        ctx.strokeStyle = isCurrent ? "#ffffff" : (isPassed ? stageColor : "#475569");
+        ctx.lineWidth = isCurrent ? 3 : 2;
+        ctx.stroke();
+
+        // Número do Hub
+        ctx.fillStyle = isCurrent ? "#0f172a" : "#cbd5e1";
+        ctx.font = `bold ${isCurrent ? 13 : 11}px monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${i + 1}`, cx, cy);
+
+        // Rótulo da Estação
+        ctx.fillStyle = isCurrent ? stageColor : "#94a3b8";
+        ctx.font = `${isCurrent ? "bold " : ""}11px sans-serif`;
+        ctx.fillText(STAGES_DATA[i].title.split(" ")[1], cx, cy + 34);
+      }
+
+      // Partículas voando entre hubs
+      particles.forEach(p => {
+        p.x += p.speed * playbackSpeed;
+        if (p.x > w) p.x = 0;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y % h, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = STAGES_DATA[p.colorIndex].color;
+        ctx.globalAlpha = 0.5;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+      });
+    }
+
+    function animate(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      if (isPlaying) {
+        currentTime += delta * playbackSpeed;
+        if (currentTime >= DURATION) {
+          currentTime = DURATION;
+          isPlaying = false;
+          updatePlayButton();
+          
+          if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+          }
+        }
+      }
+
+      // Atualiza cronômetro e barra
+      timeDisplay.textContent = `${currentTime.toFixed(2)}s / 5.00s`;
+      const pct = (currentTime / DURATION) * 100;
+      progressBar.style.width = `${pct}%`;
+
+      const activeIdx = getActiveStageIndex(currentTime);
+      updateUI(activeIdx);
+
+      const rect = canvas.getBoundingClientRect();
+      renderCanvas(rect.width, rect.height, activeIdx, currentTime);
+
+      requestAnimationFrame(animate);
+    }
+
+    function updatePlayButton() {
+      if (isPlaying) {
+        playIcon.textContent = "⏸";
+        playText.textContent = "Pausar";
+        btnPlay.className = "px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg font-bold text-xs transition flex items-center gap-1 shadow-lg shadow-amber-500/20";
+      } else {
+        playIcon.textContent = "▶";
+        playText.textContent = currentTime >= DURATION ? "Repetir" : "Iniciar";
+        btnPlay.className = "px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-lg font-bold text-xs transition flex items-center gap-1 shadow-lg shadow-cyan-500/20";
+      }
+    }
+
+    btnPlay.addEventListener("click", () => {
+      if (currentTime >= DURATION) {
+        currentTime = 0;
+      }
+      isPlaying = !isPlaying;
+      updatePlayButton();
+    });
+
+    btnReset.addEventListener("click", () => {
+      currentTime = 0;
+      isPlaying = false;
+      updatePlayButton();
+    });
+
+    progressContainer.addEventListener("click", (e) => {
+      const rect = progressContainer.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      currentTime = pct * DURATION;
+    });
+
+    function jumpTo(sec) {
+      currentTime = sec;
+      updatePlayButton();
+    }
+
+    function setSpeed(sp) {
+      playbackSpeed = sp;
+      document.querySelectorAll(".speed-btn").forEach(btn => {
+        btn.className = "speed-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300";
+      });
+      event.target.className = "speed-btn px-2 py-0.5 rounded bg-cyan-500/30 text-cyan-300 font-bold";
+    }
+
+    // Gravação de Vídeo WebM direto do Canvas
+    btnRecord.addEventListener("click", () => {
+      currentTime = 0;
+      isPlaying = true;
+      updatePlayButton();
+      recordingStatus.classList.remove("hidden");
+      recordingStatus.classList.add("flex");
+
+      const stream = canvas.captureStream(30);
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        recordingStatus.classList.add("hidden");
+        recordingStatus.classList.remove("flex");
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "rag_flow_5s.webm";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+
+      mediaRecorder.start();
+    });
+
+    // Inicia loop
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
