@@ -360,7 +360,7 @@
               <span class="text-[11px] text-slate-500">${c.length_chars} caracteres | ${c.words} palavras</span>
             </div>
             <div class="text-slate-300 font-mono text-[11px] bg-slate-950 p-2 rounded border border-slate-800/80">
-              ${c.content}
+              ${escapeHtml(c.content)}
             </div>
             ${c.parent_chunk_id ? `<div class="text-[10px] text-orange-400 font-mono">↳ Vinculado ao Parent Chunk: <code>${c.parent_chunk_id}</code></div>` : ''}
           </div>
@@ -372,6 +372,8 @@
         btn.disabled = false;
         btn.innerHTML = "<span>⚙️</span> <span>Processar Arquivo & Gerar Chunks</span>";
         alert("Erro na requisição: " + err.message);
+      } finally {
+        stopLiveLogPolling();
       }
     }
 
@@ -441,12 +443,16 @@
     // Funções de Streaming de Telemetria e Logs em Tempo Real
     let logPollingInterval = null;
     let lastLogCount = 0;
-    let activeEventSource = null;
 
     function clearTerminalLogs() {
-      document.getElementById("live-terminal-body").innerHTML = '<div class="text-slate-600">// Console limpo.</div>';
+      document.getElementById("live-terminal-body").innerHTML = '<div class="text-slate-600 font-mono text-xs">// Console limpo.</div>';
       lastLogCount = 0;
       fetch("/api/logs/clear", { method: "POST" });
+    }
+
+    function escapeHtml(text) {
+      if (!text) return "";
+      return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
     function appendLogLine(item) {
@@ -454,57 +460,59 @@
       if (!term) return;
 
       const div = document.createElement("div");
-      let badgeColor = "text-cyan-400";
-      if (item.level === "WARNING") badgeColor = "text-amber-400";
-      if (item.level === "ERROR") badgeColor = "text-rose-400";
+      let badgeColor = "text-cyan-400 border-cyan-500/30 bg-cyan-950/40";
+      let level = (item.level || "INFO").toUpperCase();
+      if (level === "WARNING") badgeColor = "text-amber-400 border-amber-500/30 bg-amber-950/40";
+      if (level === "ERROR") badgeColor = "text-rose-400 border-rose-500/30 bg-rose-950/40";
 
-      div.className = "flex items-start gap-2 leading-relaxed";
+      let rawName = item.name || "rag_demo";
+      let shortName = rawName.split(".").pop();
+      if (shortName === "video_parser") shortName = "video";
+      if (shortName === "image_parser") shortName = "vision";
+
+      div.className = "flex items-start gap-2 leading-relaxed text-[11px] font-mono hover:bg-slate-900/50 py-0.5 px-1 rounded transition";
       div.innerHTML = `
         <span class="text-slate-500 shrink-0 select-none">[${item.time}]</span>
-        <span class="font-bold ${badgeColor} shrink-0 select-none">[${item.level}]</span>
-        <span class="text-slate-300 break-all font-mono">${item.message}</span>
+        <span class="px-1.5 py-0.2 rounded border text-[9px] font-bold ${badgeColor} shrink-0 select-none">${level}</span>
+        <span class="text-indigo-300 font-semibold shrink-0 select-none">[${shortName}]</span>
+        <span class="text-slate-200 break-all font-mono">${escapeHtml(item.message)}</span>
       `;
       term.appendChild(div);
       term.scrollTop = term.scrollHeight;
     }
 
-    function startLiveLogPolling() {
-      if (activeEventSource) {
-        activeEventSource.close();
-      }
-      if (logPollingInterval) {
-        clearInterval(logPollingInterval);
-      }
-
-      // 1. Tenta usar Server-Sent Events (SSE) nativo
+    async function fetchNewLogs() {
       try {
-        activeEventSource = new EventSource("/api/logs/stream");
-        activeEventSource.onmessage = function(e) {
-          try {
-            const item = JSON.parse(e.data);
-            appendLogLine(item);
-          } catch(err) {}
-        };
-        activeEventSource.onerror = function() {
-          activeEventSource.close();
-          runPollingFallback();
-        };
-      } catch (err) {
-        runPollingFallback();
+        const res = await fetch(`/api/logs?since_idx=${lastLogCount}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.logs && data.logs.length > 0) {
+          data.logs.forEach(appendLogLine);
+          lastLogCount = data.total;
+        }
+      } catch (e) {
+        console.warn("Polling telemetria:", e);
       }
     }
 
-    function runPollingFallback() {
-      logPollingInterval = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/logs?since_idx=${lastLogCount}`);
-          const data = await res.json();
-          if (data.logs && data.logs.length > 0) {
-            data.logs.forEach(appendLogLine);
-            lastLogCount = data.total;
-          }
-        } catch (e) {}
-      }, 500);
+    function startLiveLogPolling() {
+      if (logPollingInterval) {
+        clearInterval(logPollingInterval);
+      }
+      fetchNewLogs();
+      logPollingInterval = setInterval(fetchNewLogs, 250);
+    }
+
+    function stopLiveLogPolling() {
+      // Busca os últimos logs gerados no final do processamento
+      fetchNewLogs();
+      setTimeout(fetchNewLogs, 800);
+      setTimeout(() => {
+        if (logPollingInterval) {
+          clearInterval(logPollingInterval);
+          logPollingInterval = null;
+        }
+      }, 3000);
     }
   </script>
 </body>

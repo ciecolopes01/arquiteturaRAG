@@ -21,6 +21,7 @@ from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 # Adicionar raiz do projeto ao sys.path para importar src
@@ -43,15 +44,19 @@ class WebhookLogHandler(logging.Handler):
     def emit(self, record):
         try:
             msg = self.format(record)
-            if not msg:
+            if not msg or not msg.strip():
                 return
             t = time.strftime("%H:%M:%S")
-            LOG_BUFFER.append({
+            entry = {
                 "time": t,
                 "level": record.levelname,
                 "name": record.name,
                 "message": msg
-            })
+            }
+            # Evita duplicatas consecutivas imediatas
+            if LOG_BUFFER and LOG_BUFFER[-1]["message"] == msg and LOG_BUFFER[-1]["name"] == record.name:
+                return
+            LOG_BUFFER.append(entry)
         except Exception:
             pass
 
@@ -59,9 +64,29 @@ log_handler = WebhookLogHandler()
 log_handler.setFormatter(logging.Formatter("%(message)s"))
 
 logging.basicConfig(level=logging.INFO)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+if log_handler not in root_logger.handlers:
+    root_logger.addHandler(log_handler)
+
+# Registra explicitamente em bibliotecas e módulos do pipeline
+for name in [
+    "rag_demo",
+    "faster_whisper",
+    "pyscenedetect",
+    "scenedetect",
+    "src",
+    "src.parsing.video_parser",
+    "src.parsing.image_parser",
+    "src.parsing.audio_parser",
+    "src.chunking.parent_child",
+]:
+    l = logging.getLogger(name)
+    l.setLevel(logging.INFO)
+    if log_handler not in l.handlers:
+        l.addHandler(log_handler)
+
 logger = logging.getLogger("rag_demo")
-logger.addHandler(log_handler)
-logging.getLogger().addHandler(log_handler)
 
 app = FastAPI(title="RAG Multimodal Enterprise — Demo Local", version="1.0.0")
 
@@ -388,9 +413,9 @@ async def handle_upload(
     else:
         raise HTTPException(status_code=400, detail="Nenhum arquivo enviado ou texto informado.")
 
-    # 1. Executa o Parse Real
+    # 1. Executa o Parse Real de forma não-bloqueante na threadpool
     try:
-        canonical_doc = execute_real_parse(target_path, ext, tenant_id=tenant_id)
+        canonical_doc = await run_in_threadpool(execute_real_parse, target_path, ext, tenant_id)
     except Exception as e:
         logger.error(f"Erro no parsing: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Falha ao executar parse do documento: {str(e)}")
@@ -398,9 +423,9 @@ async def handle_upload(
     canonical_doc.metadata["principals"] = principals_list
     CURRENT_DOCUMENTS[canonical_doc.id] = canonical_doc
 
-    # 2. Executa o Chunking Real
+    # 2. Executa o Chunking Real de forma não-bloqueante na threadpool
     t_chunk_0 = time.time()
-    chunks = execute_real_chunking(canonical_doc, strategy=chunk_strategy)
+    chunks = await run_in_threadpool(execute_real_chunking, canonical_doc, chunk_strategy)
     chunk_duration_ms = round((time.time() - t_chunk_0) * 1000, 2)
 
     # 3. Adiciona aos Índices em Memória para busca imediata
