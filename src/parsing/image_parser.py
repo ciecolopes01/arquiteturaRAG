@@ -158,18 +158,21 @@ DEFAULT_VISION_PROMPT = (
 )
 
 
+_CLAUDE_VISION_DISABLED = False
+
 def describe_image_visual(
     image_bytes: bytes,
-    media_type: str = "image/png",
     prompt: Optional[str] = None,
+    media_type: str = "image/png",
     context_hint: Optional[str] = None,
 ) -> str:
     """
-    Gera descrição visual textual da imagem via API Anthropic Claude com visão.
-    Se ANTHROPIC_API_KEY não estiver configurada, gera uma descrição simulada
+    Gera descrição visual semântica de uma imagem utilizando Claude 3.5 Vision.
+    Se a chave não estiver configurada ou falhar por crédito/rede, gera descrição
     estruturada com base nas propriedades da imagem e metadados.
     """
-    if settings.anthropic_api_key:
+    global _CLAUDE_VISION_DISABLED
+    if settings.anthropic_api_key and not _CLAUDE_VISION_DISABLED:
         try:
             import anthropic
 
@@ -210,7 +213,12 @@ def describe_image_visual(
             text_blocks = [b.text for b in response.content if hasattr(b, "text")]
             return "\n".join(text_blocks).strip()
         except Exception as e:
-            print(f"[image_parser] Erro ao chamar Claude Vision: {e}. Usando descrição simulada.")
+            err_str = str(e)
+            if "credit balance is too low" in err_str or "400" in err_str or "401" in err_str:
+                _CLAUDE_VISION_DISABLED = True
+                print("[image_parser] Anthropic API sem créditos ou indisponível. Desativando chamadas remotas de visão e ativando fallback estruturado ultra-rápido.")
+            else:
+                print(f"[image_parser] Erro ao chamar Claude Vision: {e}. Usando descrição simulada.")
 
     # --- Fallback simulado estruturado para ambiente offline/dev ---
     try:
