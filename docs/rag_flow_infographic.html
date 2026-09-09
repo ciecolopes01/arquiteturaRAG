@@ -500,15 +500,21 @@
       ctxM.lineWidth = 1;
       ctxM.beginPath(); ctxM.moveTo(0, 52); ctxM.lineTo(w, 52); ctxM.stroke();
 
-      // 3. Timeline Progress Bar
+      // 3. Timeline Progress Bar (Gradiente de 3 Cores Cyan -> Purple -> Amber)
       const startX = 34, endX = w - 34, totalW = endX - startX;
       const progress = t / DURATION;
 
-      ctxM.fillStyle = "#1c222e";
-      ctxM.beginPath(); ctxM.roundRect(startX, 62, totalW, 8, 4); ctxM.fill();
+      ctxM.fillStyle = "#1e293b";
+      ctxM.beginPath(); ctxM.roundRect(startX, 62, totalW, 10, 5); ctxM.fill();
 
-      ctxM.fillStyle = stageColor;
-      ctxM.beginPath(); ctxM.roundRect(startX, 62, Math.max(10, totalW * progress), 8, 4); ctxM.fill();
+      // Gradiente idêntico ao HTML Tailwind (from-cyan-500 via-purple-500 to-amber-400)
+      const timelineGrad = ctxM.createLinearGradient(startX, 0, endX, 0);
+      timelineGrad.addColorStop(0.0, "#06b6d4"); // cyan-500
+      timelineGrad.addColorStop(0.5, "#a855f7"); // purple-500
+      timelineGrad.addColorStop(1.0, "#fbbf24"); // amber-400
+
+      ctxM.fillStyle = timelineGrad;
+      ctxM.beginPath(); ctxM.roundRect(startX, 62, Math.max(10, totalW * progress), 10, 5); ctxM.fill();
 
       const labels = ["0s: Parse", "1s: Chunking", "2s: Ingestão/ACL", "3s: Transformação", "4s-5s: Busca Híbrida"];
       const stepW = totalW / 5;
@@ -517,14 +523,14 @@
         ctxM.fillStyle = (i === activeIdx) ? STAGES_DATA[i].color : ((i < activeIdx) ? "#f8fafc" : "#64748b");
         ctxM.font = `${i === activeIdx ? "bold " : ""}11px sans-serif`;
         ctxM.textAlign = "center";
-        ctxM.fillText(labels[i], cx, 84);
+        ctxM.fillText(labels[i], cx, 86);
       }
       ctxM.textAlign = "left";
 
       // 4. Canvas de Partículas & Hubs
       const boxX0 = 34, boxY0 = 96, boxW = w - 68, boxH = 140;
       ctxM.fillStyle = "#0b0f17";
-      ctxM.strokeStyle = "#27303f";
+      ctxM.strokeStyle = "#1e293b";
       ctxM.lineWidth = 1;
       ctxM.beginPath(); ctxM.roundRect(boxX0, boxY0, boxW, boxH, 10); ctxM.fill(); ctxM.stroke();
 
@@ -536,13 +542,17 @@
 
       const railY = 175;
       const railX0 = boxX0 + 120, railX1 = (boxX0 + boxW) - 120, railWidth = railX1 - railX0;
-      ctxM.strokeStyle = "#2d3748";
+      ctxM.strokeStyle = "#334155";
       ctxM.lineWidth = 4;
       ctxM.beginPath(); ctxM.moveTo(railX0, railY); ctxM.lineTo(railX1, railY); ctxM.stroke();
 
       const beamX = railX0 + (t / DURATION) * railWidth;
+      ctxM.save();
+      ctxM.shadowColor = stageColor;
+      ctxM.shadowBlur = 15;
       ctxM.fillStyle = stageColor;
       ctxM.beginPath(); ctxM.arc(beamX, railY, 18, 0, Math.PI * 2); ctxM.fill();
+      ctxM.restore();
 
       const hubStepW = railWidth / 4;
       const hubLabels = ["Parse", "Chunking", "Ingestão", "Transform.", "Busca RRF"];
@@ -554,10 +564,16 @@
         const col       = STAGES_DATA[i].color;
 
         const r = isCurrent ? 20 : 14;
-        ctxM.fillStyle = isCurrent ? col : (isPassed ? "#323c4b" : "#161c26");
-        ctxM.strokeStyle = isCurrent ? "#ffffff" : (isPassed ? col : "#3c4655");
+        ctxM.save();
+        if (isCurrent) {
+          ctxM.shadowColor = col;
+          ctxM.shadowBlur = 15;
+        }
+        ctxM.fillStyle = isCurrent ? col : (isPassed ? "#334155" : "#1e293b");
+        ctxM.strokeStyle = isCurrent ? "#ffffff" : (isPassed ? col : "#475569");
         ctxM.lineWidth = 2;
         ctxM.beginPath(); ctxM.arc(cx, cy, r, 0, Math.PI * 2); ctxM.fill(); ctxM.stroke();
+        ctxM.restore();
 
         ctxM.fillStyle = isCurrent ? "#0f172a" : "#cbd5e1";
         ctxM.font = `bold ${isCurrent ? 13 : 11}px monospace`;
@@ -581,7 +597,7 @@
         }
       });
 
-      // 5. Grid dos 5 Cards
+      // 5. Grid dos 5 Cards (Tamanhos e Bordas 100% Iguais com Glow)
       const cardW = 245, cardH = 265, spacing = 14;
       const cardStartX = (w - (5 * cardW + 4 * spacing)) / 2;
       const topY = 250;
@@ -599,20 +615,30 @@
         const isCurrent = (i === activeIdx);
         const cCol = STAGES_DATA[i].color;
 
-        ctxM.fillStyle = isCurrent ? "#1a2230" : "#121720";
-        ctxM.strokeStyle = isCurrent ? cCol : "#2a3240";
-        ctxM.lineWidth = isCurrent ? 2 : 1;
-        ctxM.beginPath(); ctxM.roundRect(cx, topY, cardW, cardH, 9); ctxM.fill(); ctxM.stroke();
+        ctxM.save();
+        if (isCurrent) {
+          ctxM.shadowColor = cCol;
+          ctxM.shadowBlur = 18;
+          ctxM.fillStyle = "#0f172a";
+          ctxM.strokeStyle = cCol;
+          ctxM.lineWidth = 2;
+        } else {
+          ctxM.fillStyle = "#090d16";
+          ctxM.strokeStyle = "#1e293b";
+          ctxM.lineWidth = 1;
+        }
+        ctxM.beginPath(); ctxM.roundRect(cx, topY, cardW, cardH, 12); ctxM.fill(); ctxM.stroke();
+        ctxM.restore();
 
-        const hdrFill = isCurrent ? "#222c3c" : "#181d26";
+        const hdrFill = isCurrent ? "#1e293b" : "#0f172a";
         ctxM.fillStyle = hdrFill;
-        ctxM.beginPath(); ctxM.roundRect(cx, topY, cardW, 36, 9); ctxM.fill(); ctxM.stroke();
+        ctxM.beginPath(); ctxM.roundRect(cx, topY, cardW, 36, 12); ctxM.fill();
 
-        ctxM.fillStyle = isCurrent ? cCol : "#8292a6";
+        ctxM.fillStyle = isCurrent ? cCol : "#64748b";
         ctxM.font = "bold 12px sans-serif";
         ctxM.fillText(cardData[i].title, cx + 10, topY + 22);
 
-        ctxM.fillStyle = isCurrent ? "#facc15" : "#64748b";
+        ctxM.fillStyle = isCurrent ? "#facc15" : "#475569";
         ctxM.font = "11px monospace";
         ctxM.fillText(cardData[i].time, cx + 10, topY + 54);
 
@@ -621,7 +647,7 @@
         ctxM.fillText(cardData[i].sub, cx + 10, topY + 68);
 
         let yItem = topY + 86;
-        ctxM.fillStyle = isCurrent ? "#ffffff" : "#8e9bb0";
+        ctxM.fillStyle = isCurrent ? "#f8fafc" : "#64748b";
         ctxM.font = "11px sans-serif";
         for (let item of cardData[i].items) {
           yItem = drawTextLinesJS(ctxM, cx + 10, yItem, item, "11px sans-serif", ctxM.fillStyle, cardW - 20, 16);
@@ -630,7 +656,7 @@
 
         if (isCurrent) {
           const pulse = (Date.now() % 1000) / 1000;
-          ctxM.fillStyle = "#263042";
+          ctxM.fillStyle = "#1e293b";
           ctxM.beginPath(); ctxM.roundRect(cx + 10, topY + cardH - 14, cardW - 20, 6, 3); ctxM.fill();
           ctxM.fillStyle = cCol;
           ctxM.beginPath(); ctxM.roundRect(cx + 10, topY + cardH - 14, (cardW - 20) * pulse, 6, 3); ctxM.fill();

@@ -200,17 +200,30 @@ def draw_header(draw: ImageDraw.Draw, current_time: float, active_idx: int) -> N
     draw.line([(0, 52), (WIDTH, 52)], fill=BORDER_COL, width=1)
 
 
-def draw_timeline(draw: ImageDraw.Draw, progress: float, active_idx: int) -> None:
-    y0, h = 62, 8
+def draw_timeline(img: Image.Image, draw: ImageDraw.Draw, progress: float, active_idx: int) -> None:
+    y0, h = 62, 10
     start_x, end_x = 34, WIDTH - 34
     total_w = end_x - start_x
     
     # Fundo do trilho
-    draw.rounded_rectangle([(start_x, y0), (end_x, y0 + h)], radius=4, fill=(28, 34, 46))
+    draw.rounded_rectangle([(start_x, y0), (end_x, y0 + h)], radius=5, fill=(30, 41, 59))
     
-    # Progresso preenchido
+    # Progresso com Gradiente 3 Cores (Cyan -> Purple -> Amber) idêntico ao HTML Tailwind
     fill_w = max(10, int(total_w * progress))
-    draw.rounded_rectangle([(start_x, y0), (start_x + fill_w, y0 + h)], radius=4, fill=STAGES[active_idx]["color"])
+    for x_i in range(fill_w):
+        curr_x = start_x + x_i
+        t_grad = x_i / float(total_w)
+        if t_grad < 0.5:
+            ratio = t_grad / 0.5
+            r = int(6 + (168 - 6) * ratio)
+            g = int(182 + (85 - 182) * ratio)
+            b = int(212 + (247 - 212) * ratio)
+        else:
+            ratio = (t_grad - 0.5) / 0.5
+            r = int(168 + (251 - 168) * ratio)
+            g = int(85 + (191 - 85) * ratio)
+            b = int(247 + (36 - 247) * ratio)
+        draw.line([(curr_x, y0), (curr_x, y0 + h)], fill=(r, g, b))
     
     # Rótulos dos tempos nas etapas
     labels = ["0s: Parse", "1s: Chunking", "2s: Ingestão/ACL", "3s: Transformação", "4s-5s: Busca Híbrida"]
@@ -218,7 +231,7 @@ def draw_timeline(draw: ImageDraw.Draw, progress: float, active_idx: int) -> Non
     for i in range(5):
         cx = start_x + i * step_w + step_w / 2
         col = STAGES[i]["color"] if i == active_idx else (TEXT_WHITE if i < active_idx else TEXT_MUTED)
-        draw.text((cx - text_w(draw, labels[i], FONT_SM) / 2, y0 + 12), labels[i], fill=col, font=FONT_SM)
+        draw.text((cx - text_w(draw, labels[i], FONT_SM) / 2, y0 + 14), labels[i], fill=col, font=FONT_SM)
 
 
 def draw_canvas_simulation(draw: ImageDraw.Draw, current_time: float, active_idx: int, frame_idx: int) -> None:
@@ -383,7 +396,7 @@ def generate_gif(output_path: str) -> None:
         draw = ImageDraw.Draw(img)
 
         draw_header(draw, current_time, active_idx)
-        draw_timeline(draw, progress, active_idx)
+        draw_timeline(img, draw, progress, active_idx)
         draw_canvas_simulation(draw, current_time, active_idx, frame_idx)
         draw_cards(draw, active_idx, frame_idx)
         draw_detail_panel(draw, active_idx, frame_idx)
