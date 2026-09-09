@@ -17,7 +17,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 # ── Dimensões ────────────────────────────────────────────────────────────────
 WIDTH  = 1200
-HEIGHT = 680
+HEIGHT = 580
 FPS    = 12                        # 12 fps → arquivo menor
 DURATION_SEC  = 5
 TOTAL_FRAMES  = FPS * DURATION_SEC # 60 frames
@@ -112,14 +112,14 @@ STAGES = [
 
 # ── Layout de Cards ───────────────────────────────────────────────────────────
 CARD_W   = 210
-CARD_H   = 290
+CARD_H   = 205   # 6 itens × 16px + header(36) + tempo(22) + barra(14) + margem
 SPACING  =  10
 TOTAL_CARDS_W = 5 * CARD_W + 4 * SPACING   # 1090
 START_X  = (WIDTH - TOTAL_CARDS_W) // 2     # 55
 
 TOP_Y    = 110   # topo dos cards
-BOT_Y    = 415   # topo do painel inferior
-BOT_H    = 250   # altura do painel inferior
+BOT_Y    = TOP_Y + CARD_H + 15  # 330 — painel inferior logo abaixo dos cards
+BOT_H    = 215   # altura do painel inferior
 
 # ── Fontes ───────────────────────────────────────────────────────────────────
 def try_font(size: int) -> ImageFont.FreeTypeFont:
