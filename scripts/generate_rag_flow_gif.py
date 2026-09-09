@@ -42,12 +42,12 @@ STAGES = [
         "color":    CYAN,
         "subtitle": "Unificação no CanonicalDocument (SHA-256 + ACL)",
         "items": [
-            "• PDF: PyMuPDF (fitz) + Img + Tab",
-            "• XLSX: openpyxl Merged + Multi-aba",
-            "• DOCX / TXT / HTML: python-docx/bs4",
-            "• IMG: Tesseract OCR + Claude Vision",
-            "• Audio: faster-whisper + Pausas seg.",
-            "• Video: PySceneDetect+CV2+Whisper+OCR",
+            "• PDF Layout-aware (PyMuPDF)",
+            "• XLSX Tabelas (openpyxl)",
+            "• DOCX / TXT / HTML Estruturado",
+            "• IMG OCR + Vision",
+            "• Audio Whisper (faster-whisper)",
+            "• Video Keyframes + Whisper + OCR",
         ],
     },
     {
