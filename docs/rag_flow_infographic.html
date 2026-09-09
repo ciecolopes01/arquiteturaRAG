@@ -234,7 +234,7 @@
     // Configurações do Pipeline de 5 Segundos
     const DURATION = 5.0; // 5 segundos
     let currentTime = 0;
-    let isPlaying = false;
+    let isPlaying = true; // Inicia animação automaticamente ao carregar
     let playbackSpeed = 1.0;
     let lastTimestamp = null;
     let mediaRecorder = null;
@@ -552,6 +552,7 @@
     });
 
     // Inicia loop
+    updatePlayButton();
     requestAnimationFrame(animate);
   </script>
 </body>
