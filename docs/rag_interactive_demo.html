@@ -688,16 +688,13 @@
       const selfRagBadge = document.getElementById("self-rag-badge");
 
       // Verificação de Bloqueio por ACL
-      if (tenant === "tenant_externo" || q.includes("sigiloso")) {
+      if (tenant === "tenant_externo" || q.toLowerCase().includes("sigiloso")) {
         selfRagBadge.textContent = "RECUSA SEGURA (ACL FAIL-CLOSED)";
         selfRagBadge.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold";
-        
         resultsDense.innerHTML = '<div class="p-3 bg-rose-950/40 border border-rose-800/80 rounded text-rose-300">⛔ Zero chunks retornados. Pré-filtro de Tenant rejeitou o acesso.</div>';
         resultsBm25.innerHTML = '<div class="p-3 bg-rose-950/40 border border-rose-800/80 rounded text-rose-300">⛔ Zero chunks retornados. Filtro tsvector restrito por tenant_id.</div>';
         resultsGraph.innerHTML = '<div class="p-3 bg-rose-950/40 border border-rose-800/80 rounded text-rose-300">⛔ Zero nós retornados. Cypher query sem permissão de leitura.</div>';
-
         rrfTable.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-rose-400 font-bold">Nenhum resultado atingiu o limiar de autorização (Fail-Closed).</td></tr>';
-
         answerBox.innerHTML = `
           <div class="p-3 bg-rose-900/20 border border-rose-700/50 rounded-lg text-rose-200">
             <strong>Acesso Negado (403 Forbidden - Fail Closed ACL):</strong><br>
@@ -707,89 +704,243 @@
         return;
       }
 
-      // Caso Normal: Busca Tri-Canal
-      selfRagBadge.textContent = "SUFICIENTE (CONFIDENCE: 94.2%)";
-      selfRagBadge.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold";
+      // ── Detecta intenção (mesma lógica do query_router.py) ──────────────────
+      const ql = q.toLowerCase();
+      let intent = "tabular";
+      if (/relac|subsidiar|holding|multi.hop|conectad|interlig|quem integra|depend/.test(ql)) {
+        intent = "graph";
+      } else if (/fail.closed|acl|segura|permiss|chaveamento|como funciona.*acl|bloqueio/.test(ql)) {
+        intent = "conceptual";
+      }
 
-      resultsDense.innerHTML = `
-        <div class="p-2.5 bg-slate-950 border border-cyan-500/40 rounded space-y-1">
-          <div class="flex justify-between text-cyan-300 font-bold"><span>#1 chunk_fin_q3_001</span><span>Score: 0.884</span></div>
-          <div class="text-slate-300 text-[11px]">Tabela 3.1 - Resultados Q3: Receita Líquida R$ 450M (+18% YoY). Margem EBITDA 32.4%.</div>
-        </div>
-        <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1">
-          <div class="flex justify-between text-slate-400"><span>#2 chunk_dre_totais</span><span>Score: 0.792</span></div>
-          <div class="text-slate-400 text-[11px]">Balanço Patrimonial Consolidado Q3 e despesas operacionais.</div>
-        </div>
-      `;
+      // ── 📊 TABLE_LOOKUP: BM25 w:1.3 · Dense w:0.7 · Graph w:0.2 ────────────
+      if (intent === "tabular") {
+        selfRagBadge.textContent = "SUFICIENTE • TABLE_LOOKUP • BM25↑ Dense↓";
+        selfRagBadge.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold";
 
-      resultsBm25.innerHTML = `
-        <div class="p-2.5 bg-slate-950 border border-blue-500/40 rounded space-y-1">
-          <div class="flex justify-between text-blue-300 font-bold"><span>#1 chunk_fin_q3_001</span><span>BM25: 14.82</span></div>
-          <div class="text-slate-300 text-[11px]">Match exato: 'faturamento', 'Q3', 'margem', 'ebitda'.</div>
-        </div>
-        <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1">
-          <div class="flex justify-between text-slate-400"><span>#2 chunk_glossario_fin</span><span>BM25: 9.15</span></div>
-          <div class="text-slate-400 text-[11px]">Definição de EBITDA e cálculo contábil corporativo.</div>
-        </div>
-      `;
-
-      resultsGraph.innerHTML = `
-        <div class="p-2.5 bg-slate-950 border border-emerald-500/40 rounded space-y-1">
-          <div class="flex justify-between text-emerald-300 font-bold"><span>#1 [Acme Corp] -[:REPORTA]-> [Q3]</span><span>Tripla</span></div>
-          <div class="text-slate-300 text-[11px]">Nó [Q3_Resultados] conectado a [Margem_EBITDA: 32.4%].</div>
-        </div>
-        <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1">
-          <div class="flex justify-between text-slate-400"><span>#2 [Acme Corp] -[:POSSUI]-> [Subsidiaria]</span><span>1-Hop</span></div>
-          <div class="text-slate-400 text-[11px]">Entidade subsidiária contribuiu com R$ 85M do total.</div>
-        </div>
-      `;
-
-      // Preenchimento do RRF
-      rrfTable.innerHTML = `
-        <tr class="bg-purple-950/20 font-bold">
-          <td class="p-2 text-cyan-300">chunk_fin_q3_001</td>
-          <td class="p-2 text-cyan-400">#1 (w:1.2)</td>
-          <td class="p-2 text-blue-400">#1 (w:1.0)</td>
-          <td class="p-2 text-emerald-400">#1 (w:0.8)</td>
-          <td class="p-2 text-right text-purple-300">0.04918 (Top 1)</td>
-        </tr>
-        <tr>
-          <td class="p-2 text-slate-400">chunk_dre_totais</td>
-          <td class="p-2 text-cyan-400">#2</td>
-          <td class="p-2 text-slate-600">--</td>
-          <td class="p-2 text-slate-600">--</td>
-          <td class="p-2 text-right">0.01935</td>
-        </tr>
-        <tr>
-          <td class="p-2 text-slate-400">chunk_glossario_fin</td>
-          <td class="p-2 text-slate-600">--</td>
-          <td class="p-2 text-blue-400">#2</td>
-          <td class="p-2 text-slate-600">--</td>
-          <td class="p-2 text-right">0.01612</td>
-        </tr>
-      `;
-
-      // Resposta Gerada
-      answerBox.innerHTML = `
-        <div class="space-y-3">
-          <p>
-            Com base nos relatórios financeiros consolidados do <strong>Q3 2026</strong> [Doc: <code>doc_fin_q3_relatorio_2026.pdf</code>, Pág. 4]:
-          </p>
-          <ul class="list-disc pl-5 space-y-1">
-            <li><strong>Faturamento Líquido:</strong> O faturamento alcançou <strong>R$ 450 Milhões</strong>, representando um crescimento de <strong>18% YoY</strong> em relação ao mesmo período do ano anterior.</li>
-            <li><strong>Margem EBITDA Ajustada:</strong> Foi apurada em <strong>32,4%</strong>.</li>
-            <li><strong>Ganhos Operacionais:</strong> Houve uma redução de custos de <strong>R$ 12 Milhões</strong> decorrente da automação de processos internos e ganho de eficiência.</li>
-          </ul>
-          <div class="p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-[11px] text-slate-400">
-            <strong>Evidências Utilizadas:</strong> [1] Tabela 3.1 da Seção Desempenho Financeiro (Qdrant + BM25) | [2] Nó de Relações de Grafo Neo4j: <code>(Acme Corp)-[:REPORTA]->(Q3)</code>.
+        resultsDense.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-cyan-500/40 rounded space-y-1">
+            <div class="flex justify-between text-cyan-300 font-bold"><span>#1 chunk_fin_q3_001</span><span>cos: 0.791</span></div>
+            <div class="text-slate-300 text-[11px]">Tabela 3.1 — Q3: Receita Líquida R$ 450M (+18% YoY). EBITDA 32.4%.</div>
           </div>
-        </div>
-      `;
+          <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1 opacity-60">
+            <div class="flex justify-between text-slate-400"><span>#2 chunk_dre_totais</span><span>cos: 0.674</span></div>
+            <div class="text-slate-400 text-[11px]">DRE Consolidada Q3: Receita Bruta R$ 502M, Deduções R$ 52M.</div>
+          </div>`;
 
-      // Métricas
-      document.getElementById("metric-latency").textContent = "Latência: 184 ms (Tri-Canal Paralelo)";
-      document.getElementById("metric-tokens").textContent = "Tokens: 420 in / 112 out";
-      document.getElementById("metric-cost").textContent = "Custo: $0.0014";
+        resultsBm25.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-blue-500/60 rounded space-y-1">
+            <div class="flex justify-between text-blue-300 font-bold"><span>#1 chunk_fin_q3_001</span><span>BM25: 17.45</span></div>
+            <div class="text-slate-300 text-[11px]">Match exato: <code class="text-blue-200">'faturamento' 'Q3' 'margem' 'ebitda'</code> (4 hits, título ×1.5).</div>
+          </div>
+          <div class="p-2.5 bg-slate-950 border border-blue-500/30 rounded space-y-1 opacity-70">
+            <div class="flex justify-between text-blue-300"><span>#2 chunk_glossario_fin</span><span>BM25: 9.15</span></div>
+            <div class="text-slate-400 text-[11px]">Definição de EBITDA e cálculo contábil.</div>
+          </div>
+          <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1 opacity-50">
+            <div class="flex justify-between text-slate-400"><span>#3 chunk_xlsx_dre_row42</span><span>BM25: 6.82</span></div>
+            <div class="text-slate-400 text-[11px]">DRE Outubro: TI &amp; Cloud R$ 14.500 | Qdrant | Liquidado.</div>
+          </div>`;
+
+        resultsGraph.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-emerald-500/20 rounded space-y-1 opacity-45">
+            <div class="flex justify-between text-emerald-300 text-[11px]"><span>#1 [Acme]-[:REPORTA]→[Q3]</span><span>score: 0.4</span></div>
+            <div class="text-slate-500 text-[10px]">Peso graph w:0.2 — TABLE_LOOKUP prioriza BM25. Nó EBITDA 1-hop.</div>
+          </div>`;
+
+        rrfTable.innerHTML = `
+          <tr class="bg-amber-950/20 font-bold">
+            <td class="p-2 text-amber-300">chunk_fin_q3_001</td>
+            <td class="p-2 text-cyan-400">#1 (w:0.7)</td>
+            <td class="p-2 text-blue-400">#1 (w:1.3)</td>
+            <td class="p-2 text-emerald-400">#1 (w:0.2)</td>
+            <td class="p-2 text-right text-purple-300">0.04701 ★</td>
+          </tr>
+          <tr>
+            <td class="p-2 text-slate-400">chunk_glossario_fin</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-blue-400">#2</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-right">0.02113</td>
+          </tr>
+          <tr>
+            <td class="p-2 text-slate-400">chunk_dre_totais</td>
+            <td class="p-2 text-cyan-400">#2</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-right">0.01613</td>
+          </tr>`;
+
+        answerBox.innerHTML = `
+          <div class="space-y-3">
+            <div class="text-[11px] font-mono text-amber-400 bg-amber-950/30 border border-amber-800/50 rounded px-2 py-1">🎯 TABLE_LOOKUP · BM25: 1.3 · Dense: 0.7 · Graph: 0.2 · Reranker: BGE-Reranker-v2-m3</div>
+            <p>Com base no relatório <strong>Q3 2026</strong> [<code>doc_fin_q3_relatorio_2026.pdf</code>, Tabela 3.1, Pág. 4]:</p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li><strong>Faturamento Líquido:</strong> <strong>R$ 450M</strong> — crescimento de <strong>18% YoY</strong>.</li>
+              <li><strong>Margem EBITDA Ajustada:</strong> <strong>32,4%</strong>, acima da meta de 30%.</li>
+              <li><strong>Redução de Custos:</strong> <strong>R$ 12M</strong> por automação de processos.</li>
+            </ul>
+            <div class="p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-[11px] text-slate-400">
+              <strong>Evidências:</strong> [1] Tabela 3.1 "Desempenho Financeiro" (BM25 #1 + Dense #1 → RRF 0.04701) | [2] DRE Consolidada (Dense #2).
+            </div>
+          </div>`;
+
+        document.getElementById("metric-latency").textContent = "Latência: 147 ms (BM25 dominante)";
+        document.getElementById("metric-tokens").textContent = "Tokens: 380 in / 98 out";
+        document.getElementById("metric-cost").textContent = "Custo: $0.0011";
+
+      // ── 🛡️ SEMANTIC_EXPLANATION: Dense w:1.4 · BM25 w:0.6 · Graph w:0.3 ────
+      } else if (intent === "conceptual") {
+        selfRagBadge.textContent = "SUFICIENTE • SEMANTIC_EXPLANATION • Dense↑ BM25↓";
+        selfRagBadge.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold";
+
+        resultsDense.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-cyan-500/60 rounded space-y-1">
+            <div class="flex justify-between text-cyan-300 font-bold"><span>#1 chunk_adr_acl_001</span><span>cos: 0.931</span></div>
+            <div class="text-slate-300 text-[11px]">ADR-0001: Fail-Closed ACL. Pré-filtragem obrigatória de tenant_id + principals na raiz de toda consulta.</div>
+          </div>
+          <div class="p-2.5 bg-slate-950 border border-cyan-500/40 rounded space-y-1">
+            <div class="flex justify-between text-cyan-300"><span>#2 chunk_acl_impl_002</span><span>cos: 0.872</span></div>
+            <div class="text-slate-300 text-[11px]">resolve_principals(): sem principals → ValueError. Zero-bypass garantido por AST check.</div>
+          </div>
+          <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1 opacity-60">
+            <div class="flex justify-between text-slate-400"><span>#3 chunk_retrieval_acl</span><span>cos: 0.744</span></div>
+            <div class="text-slate-400 text-[11px]">Filtro simultâneo nos 3 canais antes de qualquer cálculo de relevância.</div>
+          </div>`;
+
+        resultsBm25.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-blue-500/30 rounded space-y-1 opacity-65">
+            <div class="flex justify-between text-blue-300"><span>#1 chunk_adr_acl_001</span><span>BM25: 8.34</span></div>
+            <div class="text-slate-400 text-[11px]">Match: <code class="text-blue-200">'fail-closed' 'acl' 'segurança'</code> (w:0.6 — SEMANTIC reduz BM25).</div>
+          </div>
+          <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1 opacity-50">
+            <div class="flex justify-between text-slate-400"><span>#2 chunk_security_ast</span><span>BM25: 5.11</span></div>
+            <div class="text-slate-400 text-[11px]">AST: invariantes de segurança validados estaticamente.</div>
+          </div>`;
+
+        resultsGraph.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-emerald-500/40 rounded space-y-1 opacity-65">
+            <div class="flex justify-between text-emerald-300"><span>#1 [ACL]-[:PROTEGE]→[Tenant]</span><span>score: 0.6</span></div>
+            <div class="text-slate-400 text-[11px]">ACL → INTEGRATES_WITH → resolve_principals (1-hop). Graph w:0.3.</div>
+          </div>`;
+
+        rrfTable.innerHTML = `
+          <tr class="bg-purple-950/20 font-bold">
+            <td class="p-2 text-purple-300">chunk_adr_acl_001</td>
+            <td class="p-2 text-cyan-400">#1 (w:1.4)</td>
+            <td class="p-2 text-blue-400">#1 (w:0.6)</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-right text-purple-300">0.03084 ★</td>
+          </tr>
+          <tr>
+            <td class="p-2 text-slate-400">chunk_acl_impl_002</td>
+            <td class="p-2 text-cyan-400">#2</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-emerald-400">#1 (w:0.3)</td>
+            <td class="p-2 text-right">0.02453</td>
+          </tr>
+          <tr>
+            <td class="p-2 text-slate-400">chunk_retrieval_acl</td>
+            <td class="p-2 text-cyan-400">#3</td>
+            <td class="p-2 text-blue-400">#2</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-right">0.01912</td>
+          </tr>`;
+
+        answerBox.innerHTML = `
+          <div class="space-y-3">
+            <div class="text-[11px] font-mono text-purple-400 bg-purple-950/30 border border-purple-800/50 rounded px-2 py-1">🎯 SEMANTIC_EXPLANATION · Dense: 1.4 · BM25: 0.6 · Graph: 0.3 · HyDE ativado</div>
+            <p>O <strong>Fail-Closed ACL</strong> é documentado no <strong>ADR-0001</strong> [<code>0001-fail-closed-acl-enforcement.md</code>]:</p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li><strong>Pré-filtro obrigatório:</strong> toda consulta declara <code>tenant_id</code> + <code>principals</code> — sem eles → <code>ValueError</code> imediato.</li>
+              <li><strong>Tri-canal uniforme:</strong> filtro em Dense (Qdrant payload), BM25 (tsvector WHERE) e Graph (Cypher ACL) — sem bypass por canal alternativo.</li>
+              <li><strong>Zero-bypass por AST:</strong> <code>test_security_ast.py</code> valida estaticamente que nenhuma chamada de busca omite ACL.</li>
+            </ul>
+            <div class="p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-[11px] text-slate-400">
+              <strong>Evidências:</strong> [1] ADR-0001 (Dense #1 cos:0.931 → RRF 0.03084) | [2] acl_filter.py (Dense #2 + Graph #1) | [3] test_security_ast.py (BM25 #2).
+            </div>
+          </div>`;
+
+        document.getElementById("metric-latency").textContent = "Latência: 221 ms (HyDE + Dense dominante)";
+        document.getElementById("metric-tokens").textContent = "Tokens: 512 in / 143 out";
+        document.getElementById("metric-cost").textContent = "Custo: $0.0019";
+
+      // ── 🕸️ RELATIONAL: Graph w:1.4 · Dense w:0.8 · BM25 w:0.8 ─────────────
+      } else {
+        selfRagBadge.textContent = "SUFICIENTE • RELATIONAL • Graph↑ Multi-hop 2 saltos";
+        selfRagBadge.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold";
+
+        resultsDense.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-cyan-500/30 rounded space-y-1 opacity-65">
+            <div class="flex justify-between text-cyan-300"><span>#1 chunk_corp_estrutura</span><span>cos: 0.781</span></div>
+            <div class="text-slate-300 text-[11px]">Governança corporativa: estrutura de subsidiárias e participações do Grupo Acme.</div>
+          </div>
+          <div class="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1 opacity-45">
+            <div class="flex justify-between text-slate-400"><span>#2 chunk_relatorio_holding</span><span>cos: 0.643</span></div>
+            <div class="text-slate-400 text-[11px]">Holding ABC Investimentos: participação consolidada IFRS.</div>
+          </div>`;
+
+        resultsBm25.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-blue-500/30 rounded space-y-1 opacity-65">
+            <div class="flex justify-between text-blue-300"><span>#1 chunk_corp_estrutura</span><span>BM25: 7.21</span></div>
+            <div class="text-slate-400 text-[11px]">Match: <code class="text-blue-200">'subsidiária' 'holding' 'relação'</code> (w:0.8 — RELATIONAL).</div>
+          </div>`;
+
+        resultsGraph.innerHTML = `
+          <div class="p-2.5 bg-slate-950 border border-emerald-500/70 rounded space-y-1">
+            <div class="flex justify-between text-emerald-300 font-bold"><span>#1 [Alfa]-[:SUBSIDIARIA_DE]→[Holding]</span><span>score: 1.0</span></div>
+            <div class="text-slate-300 text-[11px]">Hit direto: entidades "subsidiaria" + "holding" na query (salto 0). Peso w:1.4.</div>
+          </div>
+          <div class="p-2.5 bg-slate-950 border border-emerald-500/50 rounded space-y-1">
+            <div class="flex justify-between text-emerald-300 font-bold"><span>#2 [Holding]-[:CONTROLA]→[FundoXYZ]</span><span>score: 0.6</span></div>
+            <div class="text-slate-300 text-[11px]">1-hop: Holding ABC controla Fundo XYZ (participação 73%).</div>
+          </div>
+          <div class="p-2.5 bg-slate-950 border border-emerald-500/30 rounded space-y-1 opacity-70">
+            <div class="flex justify-between text-emerald-300"><span>#3 [FundoXYZ]-[:INVESTIU_EM]→[Alfa]</span><span>score: 0.3</span></div>
+            <div class="text-slate-400 text-[11px]">2-hop: Fundo XYZ aportou R$ 85M na capitalização da Alfa.</div>
+          </div>`;
+
+        rrfTable.innerHTML = `
+          <tr class="bg-emerald-950/20 font-bold">
+            <td class="p-2 text-emerald-300">chunk_corp_estrutura</td>
+            <td class="p-2 text-cyan-400">#1 (w:0.8)</td>
+            <td class="p-2 text-blue-400">#1 (w:0.8)</td>
+            <td class="p-2 text-emerald-400">#3 (w:1.4)</td>
+            <td class="p-2 text-right text-purple-300">0.04031 ★</td>
+          </tr>
+          <tr>
+            <td class="p-2 text-slate-400">chunk_graph_alfa_holding</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-emerald-400">#1 (w:1.4)</td>
+            <td class="p-2 text-right">0.02246</td>
+          </tr>
+          <tr>
+            <td class="p-2 text-slate-400">chunk_graph_fundo_xyz</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-slate-600">--</td>
+            <td class="p-2 text-emerald-400">#2 (w:1.4)</td>
+            <td class="p-2 text-right">0.01311</td>
+          </tr>`;
+
+        answerBox.innerHTML = `
+          <div class="space-y-3">
+            <div class="text-[11px] font-mono text-emerald-400 bg-emerald-950/30 border border-emerald-800/50 rounded px-2 py-1">🎯 RELATIONAL · Graph: 1.4 · Dense: 0.8 · BM25: 0.8 · Cypher 2-hop traversal</div>
+            <p>Relação entre <strong>Subsidiária Alfa</strong> e <strong>Holding ABC Investimentos</strong> mapeada em <strong>2 saltos</strong> no Neo4j:</p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li><strong>Salto 0:</strong> <code>(Alfa)-[:SUBSIDIARIA_DE]→(Holding ABC)</code> — 100% de participação detida pelo Holding.</li>
+              <li><strong>Salto 1:</strong> <code>(Holding ABC)-[:CONTROLA]→(Fundo XYZ)</code> — Holding detém 73% do Fundo de private equity.</li>
+              <li><strong>Salto 2 (ciclo):</strong> <code>(Fundo XYZ)-[:INVESTIU_EM]→(Alfa)</code> — aporte de <strong>R$ 85 Milhões</strong> na capitalização da Alfa.</li>
+            </ul>
+            <div class="p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-[11px] text-slate-400">
+              <strong>Evidências:</strong> [1] Grafo Neo4j: 3 nós, 3 arestas (Graph RRF 0.04031) | [2] Doc. Governança Corporativa (Dense #1 + BM25 #1) | [3] Relatório Holding IFRS (Dense #2).
+            </div>
+          </div>`;
+
+        document.getElementById("metric-latency").textContent = "Latência: 312 ms (Graph 2-hop Cypher traversal)";
+        document.getElementById("metric-tokens").textContent = "Tokens: 445 in / 128 out";
+        document.getElementById("metric-cost").textContent = "Custo: $0.0016";
+      }
     }
 
     // Inicialização
