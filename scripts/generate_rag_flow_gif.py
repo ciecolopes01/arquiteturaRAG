@@ -44,7 +44,7 @@ STAGES = [
         "color":    CYAN,
         "subtitle": "CanonicalDocument Unificado",
         "items": [
-            "• PDF  Layout + Img + Tabelas",
+            "• PDF  PyMuPDF + Img + Tabelas",
             "• XLSX Merged + Multi-aba",
             "• DOCX / TXT / HTML",
             "• IMG  OCR + Vision + MinIO",
