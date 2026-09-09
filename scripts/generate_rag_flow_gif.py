@@ -31,36 +31,36 @@ STAGES = [
         "title": "1. PARSE MULTIMODAL",
         "time": "0.0s - 1.0s",
         "color": CYAN,
-        "subtitle": "Unificação para CanonicalDocument",
-        "items": ["• PDF (Layout-aware)", "• XLSX (Tabelas/Planilhas)", "• IMG (OCR + Vision)", "• Áudio (Whisper)", "• Vídeo (Keyframes + Áudio)"]
+        "subtitle": "CanonicalDocument Model Unificado",
+        "items": ["• PDF Layout+Img+Tabelas", "• XLSX Merged+Multi-aba", "• DOCX / TXT / HTML", "• IMG OCR+Vision+MinIO", "• Audio Whisper+Pausas", "• Video Cenas+Whisper+OCR"]
     },
     {
         "title": "2. CHUNKING ENGINE",
         "time": "1.0s - 2.0s",
         "color": ORANGE,
-        "subtitle": "Estratégias de Divisão de Contexto",
-        "items": ["• Parent-Child (Hierárquico)", "• Recursivo UUIDv5 Determinístico", "• Semântico (Similaridade Cosseno)", "• Multi-Vector (Resumos/Keywords)", "• Multimodal Sincronizado"]
+        "subtitle": "Divisao Estrategica Hierarquica",
+        "items": ["• Parent-Child 1200/300 tokens", "• Recursivo UUIDv5 Determin.", "• Semantico Cosseno", "• Overlap 40-64 tokens", "• Multimodal Sync Chunks"]
     },
     {
-        "title": "3. INGESTÃO & GOVERNANÇA",
+        "title": "3. INGESTAO & ACL",
         "time": "2.0s - 3.0s",
         "color": GREEN,
-        "subtitle": "Segurança Granular Fail-Closed",
-        "items": ["• Tenant ID & Principals Tagging", "• Filtro ACL Pré-Indexação", "• Deduplicação & Content Hash", "• Grafo de Dependências Versionado", "• Zero-Bypass de Permissões"]
+        "subtitle": "Seguranca Fail-Closed Granular",
+        "items": ["• Tenant ID + ACL Principals", "• Pre-filtro Fail-Closed", "• SHA-256 Content Hash", "• Doc Registry (Postgres)", "• Delta-Reindex Incremental"]
     },
     {
-        "title": "4. TRANSFORMAÇÃO & ÍNDICES",
+        "title": "4. TRANSFORMACAO",
         "time": "3.0s - 4.0s",
         "color": PURPLE,
-        "subtitle": "Geração Tri-Canal em Paralelo",
-        "items": ["• BGE-M3 Denso (1024d) -> Qdrant", "• BM25 + tsvector -> PostgreSQL", "• Entidades & Triplas -> Neo4j Graph", "• Cache de Embeddings & Versionamento", "• Dual-Write Indexing"]
+        "subtitle": "3 Indices em Paralelo",
+        "items": ["• BGE-M3 -> Qdrant Dense", "• BM25 -> Postgres tsvector", "• Graph RAG Neo4j/NetworkX", "• NER + Relacoes Regex", "• Embedding Cache+Dual-Write"]
     },
     {
-        "title": "5. BUSCA HÍBRIDA & RRF",
+        "title": "5. BUSCA HIBRIDA",
         "time": "4.0s - 5.0s",
         "color": YELLOW,
-        "subtitle": "Recuperação Tri-Canal + Rerank",
-        "items": ["• Soft Query Router (Fast/Full Path)", "• Busca Tri-Canal com Pré-Filtro ACL", "• Fusão RRF: Σ wi / (k + ranki)", "• Cross-Encoder BGE-Reranker-v2", "• Self-RAG Context Evaluator"]
+        "subtitle": "RRF Ponderado + Rerank",
+        "items": ["• Query Router 5 intencoes", "• HyDE + Decomposicao", "• RRF Dense+BM25+Graph k=60", "• BGE-Reranker-v2-m3", "• Self-RAG Evaluator"]
     }
 ]
 
