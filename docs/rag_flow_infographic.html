@@ -441,6 +441,254 @@
       });
     }
 
+    // Master Canvas Offscreen para Gravação de Vídeo de Alta Qualidade do Infográfico Completo
+    const masterCanvas = document.createElement("canvas");
+    masterCanvas.width = 1350;
+    masterCanvas.height = 800;
+    const masterCtx = masterCanvas.getContext("2d");
+
+    function drawTextLinesJS(ctx, x, y, text, font, fill, maxW, lineH) {
+      ctx.font = font;
+      ctx.fillStyle = fill;
+      const words = text.split(" ");
+      let line = "";
+      for (let word of words) {
+        let testLine = (line + " " + word).trim();
+        if (ctx.measureText(testLine).width <= maxW) {
+          line = testLine;
+        } else {
+          if (line) {
+            ctx.fillText(line, x, y);
+            y += lineH;
+          }
+          line = word;
+        }
+      }
+      if (line) {
+        ctx.fillText(line, x, y);
+        y += lineH;
+      }
+      return y;
+    }
+
+    function renderMasterInfographic(ctxM, w, h, activeIdx, t) {
+      const stage = STAGES_DATA[activeIdx];
+      const stageColor = stage.color;
+
+      // 1. Fundo Geral
+      ctxM.fillStyle = "#090c12";
+      ctxM.fillRect(0, 0, w, h);
+
+      // 2. Header
+      ctxM.fillStyle = "#10141c";
+      ctxM.fillRect(0, 0, w, 52);
+      ctxM.fillStyle = "#f8fafc";
+      ctxM.font = "bold 18px sans-serif";
+      ctxM.fillText("ARQUITETURA RAG MULTIMODAL — FLUXO COMPLETO (5s)", 20, 32);
+
+      ctxM.fillStyle = stageColor;
+      ctxM.font = "bold 14px sans-serif";
+      ctxM.textAlign = "right";
+      ctxM.fillText(`ETAPA ${activeIdx + 1}/5: ${stage.title.toUpperCase()}`, w - 180, 32);
+
+      ctxM.fillStyle = "#facc15";
+      ctxM.font = "bold 15px monospace";
+      ctxM.fillText(`${t.toFixed(2)}s / 5.00s`, w - 20, 32);
+      ctxM.textAlign = "left";
+
+      ctxM.strokeStyle = "#27303f";
+      ctxM.lineWidth = 1;
+      ctxM.beginPath(); ctxM.moveTo(0, 52); ctxM.lineTo(w, 52); ctxM.stroke();
+
+      // 3. Timeline Progress Bar
+      const startX = 34, endX = w - 34, totalW = endX - startX;
+      const progress = t / DURATION;
+
+      ctxM.fillStyle = "#1c222e";
+      ctxM.beginPath(); ctxM.roundRect(startX, 62, totalW, 8, 4); ctxM.fill();
+
+      ctxM.fillStyle = stageColor;
+      ctxM.beginPath(); ctxM.roundRect(startX, 62, Math.max(10, totalW * progress), 8, 4); ctxM.fill();
+
+      const labels = ["0s: Parse", "1s: Chunking", "2s: Ingestão/ACL", "3s: Transformação", "4s-5s: Busca Híbrida"];
+      const stepW = totalW / 5;
+      for (let i = 0; i < 5; i++) {
+        const cx = startX + i * stepW + stepW / 2;
+        ctxM.fillStyle = (i === activeIdx) ? STAGES_DATA[i].color : ((i < activeIdx) ? "#f8fafc" : "#64748b");
+        ctxM.font = `${i === activeIdx ? "bold " : ""}11px sans-serif`;
+        ctxM.textAlign = "center";
+        ctxM.fillText(labels[i], cx, 84);
+      }
+      ctxM.textAlign = "left";
+
+      // 4. Canvas de Partículas & Hubs
+      const boxX0 = 34, boxY0 = 96, boxW = w - 68, boxH = 140;
+      ctxM.fillStyle = "#0b0f17";
+      ctxM.strokeStyle = "#27303f";
+      ctxM.lineWidth = 1;
+      ctxM.beginPath(); ctxM.roundRect(boxX0, boxY0, boxW, boxH, 10); ctxM.fill(); ctxM.stroke();
+
+      ctxM.fillStyle = "#141a24";
+      ctxM.beginPath(); ctxM.roundRect(boxX0 + 12, boxY0 + 10, 270, 20, 4); ctxM.fill();
+      ctxM.fillStyle = "#94a3b8";
+      ctxM.font = "10px monospace";
+      ctxM.fillText("Simulação Visual de Partículas em Alta Velocidade", boxX0 + 18, boxY0 + 24);
+
+      const railY = 175;
+      const railX0 = boxX0 + 120, railX1 = (boxX0 + boxW) - 120, railWidth = railX1 - railX0;
+      ctxM.strokeStyle = "#2d3748";
+      ctxM.lineWidth = 4;
+      ctxM.beginPath(); ctxM.moveTo(railX0, railY); ctxM.lineTo(railX1, railY); ctxM.stroke();
+
+      const beamX = railX0 + (t / DURATION) * railWidth;
+      ctxM.fillStyle = stageColor;
+      ctxM.beginPath(); ctxM.arc(beamX, railY, 18, 0, Math.PI * 2); ctxM.fill();
+
+      const hubStepW = railWidth / 4;
+      const hubLabels = ["Parse", "Chunking", "Ingestão", "Transform.", "Busca RRF"];
+      for (let i = 0; i < 5; i++) {
+        const cx = railX0 + i * hubStepW;
+        const cy = railY;
+        const isCurrent = (i === activeIdx);
+        const isPassed  = (i < activeIdx);
+        const col       = STAGES_DATA[i].color;
+
+        const r = isCurrent ? 20 : 14;
+        ctxM.fillStyle = isCurrent ? col : (isPassed ? "#323c4b" : "#161c26");
+        ctxM.strokeStyle = isCurrent ? "#ffffff" : (isPassed ? col : "#3c4655");
+        ctxM.lineWidth = 2;
+        ctxM.beginPath(); ctxM.arc(cx, cy, r, 0, Math.PI * 2); ctxM.fill(); ctxM.stroke();
+
+        ctxM.fillStyle = isCurrent ? "#0f172a" : "#cbd5e1";
+        ctxM.font = `bold ${isCurrent ? 13 : 11}px monospace`;
+        ctxM.textAlign = "center";
+        ctxM.fillText(`${i + 1}`, cx, cy + (isCurrent ? 4 : 3));
+
+        ctxM.fillStyle = isCurrent ? col : "#94a3b8";
+        ctxM.font = `${isCurrent ? "bold " : ""}11px sans-serif`;
+        ctxM.fillText(hubLabels[i], cx, cy + 34);
+      }
+      ctxM.textAlign = "left";
+
+      particles.forEach(p => {
+        let px = (p.x + t * 40 * p.speed) % boxW + boxX0;
+        let py = (p.y % boxH) + boxY0;
+        if (boxY0 + 35 < py && py < boxY0 + boxH - 15) {
+          ctxM.fillStyle = STAGES_DATA[p.colorIndex].color;
+          ctxM.globalAlpha = 0.5;
+          ctxM.beginPath(); ctxM.arc(px, py, p.size, 0, Math.PI * 2); ctxM.fill();
+          ctxM.globalAlpha = 1.0;
+        }
+      });
+
+      // 5. Grid dos 5 Cards
+      const cardW = 245, cardH = 265, spacing = 14;
+      const cardStartX = (w - (5 * cardW + 4 * spacing)) / 2;
+      const topY = 250;
+
+      const cardData = [
+        { title: "1. Parse Multimodal", time: "0.0s - 1.0s", sub: "Unificação no CanonicalDocument", items: ["• PDF Layout-aware (PyMuPDF)", "• XLSX Tabelas (openpyxl)", "• DOCX/TXT/HTML Estruturado", "• IMG OCR + Vision", "• Áudio Whisper (faster-whisper)", "• Vídeo Keyframes + Whisper + OCR"] },
+        { title: "2. Chunking Engine", time: "1.0s - 2.0s", sub: "Divisão Estratégica", items: ["• Parent-Child 1200 / 300 tk", "• Recursivo UUIDv5 det.", "• Semântico Cosseno", "• Overlap 40 – 64 tokens", "• Multimodal Sync chunks"] },
+        { title: "3. Ingestão & ACL", time: "2.0s - 3.0s", sub: "Segurança Fail-Closed", items: ["• Tenant ID Tagging isolado", "• ACL Pré-filtro Fail-Closed", "• SHA-256 Content Hash", "• Doc Registry Postgres", "• Δ-Reindex Incremental"] },
+        { title: "4. Transformação", time: "3.0s - 4.0s", sub: "3 Índices em Paralelo", items: ["• BGE-M3 Qdrant Dense", "• BM25 Postgres tsvector", "• Graph RAG Neo4j/NetworkX", "• NER Extração Regex", "• Cache Dual-Write Atômico"] },
+        { title: "5. Busca Híbrida", time: "4.0s - 5.0s", sub: "RRF Ponderado + Rerank", items: ["• Query Router 5 intenções", "• HyDE + Decomposição", "• RRF Dense+BM25+Graph", "• BGE-Reranker-v2-m3", "• Self-RAG Quality Gate"] }
+      ];
+
+      for (let i = 0; i < 5; i++) {
+        const cx = cardStartX + i * (cardW + spacing);
+        const isCurrent = (i === activeIdx);
+        const cCol = STAGES_DATA[i].color;
+
+        ctxM.fillStyle = isCurrent ? "#1a2230" : "#121720";
+        ctxM.strokeStyle = isCurrent ? cCol : "#2a3240";
+        ctxM.lineWidth = isCurrent ? 2 : 1;
+        ctxM.beginPath(); ctxM.roundRect(cx, topY, cardW, cardH, 9); ctxM.fill(); ctxM.stroke();
+
+        const hdrFill = isCurrent ? "#222c3c" : "#181d26";
+        ctxM.fillStyle = hdrFill;
+        ctxM.beginPath(); ctxM.roundRect(cx, topY, cardW, 36, 9); ctxM.fill(); ctxM.stroke();
+
+        ctxM.fillStyle = isCurrent ? cCol : "#8292a6";
+        ctxM.font = "bold 12px sans-serif";
+        ctxM.fillText(cardData[i].title, cx + 10, topY + 22);
+
+        ctxM.fillStyle = isCurrent ? "#facc15" : "#64748b";
+        ctxM.font = "11px monospace";
+        ctxM.fillText(cardData[i].time, cx + 10, topY + 54);
+
+        ctxM.fillStyle = "#94a3b8";
+        ctxM.font = "10px sans-serif";
+        ctxM.fillText(cardData[i].sub, cx + 10, topY + 68);
+
+        let yItem = topY + 86;
+        ctxM.fillStyle = isCurrent ? "#ffffff" : "#8e9bb0";
+        ctxM.font = "11px sans-serif";
+        for (let item of cardData[i].items) {
+          yItem = drawTextLinesJS(ctxM, cx + 10, yItem, item, "11px sans-serif", ctxM.fillStyle, cardW - 20, 16);
+          yItem += 2;
+        }
+
+        if (isCurrent) {
+          const pulse = (Date.now() % 1000) / 1000;
+          ctxM.fillStyle = "#263042";
+          ctxM.beginPath(); ctxM.roundRect(cx + 10, topY + cardH - 14, cardW - 20, 6, 3); ctxM.fill();
+          ctxM.fillStyle = cCol;
+          ctxM.beginPath(); ctxM.roundRect(cx + 10, topY + cardH - 14, (cardW - 20) * pulse, 6, 3); ctxM.fill();
+        }
+      }
+
+      // 6. Painel de Detalhes Inferior
+      const botY = 530, botH = 250;
+      ctxM.fillStyle = "#101620";
+      ctxM.strokeStyle = stageColor;
+      ctxM.lineWidth = 2;
+      ctxM.beginPath(); ctxM.roundRect(34, botY, w - 68, botH, 10); ctxM.fill(); ctxM.stroke();
+
+      ctxM.fillStyle = stageColor;
+      ctxM.beginPath(); ctxM.roundRect(34, botY, 10, botH, 4); ctxM.fill();
+
+      ctxM.font = "bold 11px sans-serif";
+      ctxM.fillText(stage.badge, 56, botY + 22);
+
+      ctxM.fillStyle = "#ffffff";
+      ctxM.font = "bold 16px sans-serif";
+      ctxM.fillText(stage.title, 56, botY + 44);
+
+      ctxM.fillStyle = "#94a3b8";
+      ctxM.font = "11px monospace";
+      ctxM.textAlign = "right";
+      ctxM.fillText(stage.window, w - 50, botY + 44);
+      ctxM.textAlign = "left";
+
+      ctxM.strokeStyle = "#27303f";
+      ctxM.lineWidth = 1;
+      ctxM.beginPath(); ctxM.moveTo(56, botY + 56); ctxM.lineTo(w - 50, botY + 56); ctxM.stroke();
+
+      drawTextLinesJS(ctxM, 56, botY + 76, stage.desc, "13px sans-serif", "#cbd5e1", w - 120, 20);
+
+      // Renderiza Tags Arredondadas
+      let tagX = 56, tagY = botY + 185;
+      ctxM.font = "10px monospace";
+      for (let tag of stage.tags) {
+        let tw = ctxM.measureText(tag).width + 24;
+        if (tagX + tw > (w - 60)) {
+          tagX = 56;
+          tagY += 28;
+        }
+        ctxM.fillStyle = "#1a2230";
+        ctxM.strokeStyle = "#303a4d";
+        ctxM.lineWidth = 1;
+        ctxM.beginPath(); ctxM.roundRect(tagX, tagY, tw, 22, 6); ctxM.fill(); ctxM.stroke();
+
+        ctxM.fillStyle = stageColor;
+        ctxM.beginPath(); ctxM.arc(tagX + 9, tagY + 11, 3, 0, Math.PI * 2); ctxM.fill();
+
+        ctxM.fillStyle = "#e2e8f0";
+        ctxM.fillText(tag, tagX + 16, tagY + 15);
+        tagX += tw + 8;
+      }
+    }
+
     function animate(timestamp) {
       if (!lastTimestamp) lastTimestamp = timestamp;
       const delta = (timestamp - lastTimestamp) / 1000;
@@ -459,7 +707,7 @@
         }
       }
 
-      // Atualiza cronômetro e barra
+      // Atualiza cronômetro e barra na página HTML
       timeDisplay.textContent = `${currentTime.toFixed(2)}s / 5.00s`;
       const pct = (currentTime / DURATION) * 100;
       progressBar.style.width = `${pct}%`;
@@ -469,6 +717,9 @@
 
       const rect = canvas.getBoundingClientRect();
       renderCanvas(rect.width, rect.height, activeIdx, currentTime);
+
+      // Renderiza Infográfico Completo na Master Canvas (para captura do vídeo WebM)
+      renderMasterInfographic(masterCtx, masterCanvas.width, masterCanvas.height, activeIdx, currentTime);
 
       requestAnimationFrame(animate);
     }
@@ -519,7 +770,7 @@
       event.target.className = "speed-btn px-2 py-0.5 rounded bg-cyan-500/30 text-cyan-300 font-bold";
     }
 
-    // Gravação de Vídeo WebM direto do Canvas
+    // Gravação de Vídeo WebM do INFOGRÁFICO COMPLETO (Header + Timeline + Partículas + Cards + Detalhes)
     btnRecord.addEventListener("click", () => {
       currentTime = 0;
       isPlaying = true;
@@ -527,7 +778,7 @@
       recordingStatus.classList.remove("hidden");
       recordingStatus.classList.add("flex");
 
-      const stream = canvas.captureStream(30);
+      const stream = masterCanvas.captureStream(30);
       recordedChunks = [];
       mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
 
