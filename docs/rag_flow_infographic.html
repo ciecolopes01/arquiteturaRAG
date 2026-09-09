@@ -201,7 +201,7 @@
     </div>
 
     <!-- Painel de Detalhes Atuais em Tempo Real -->
-    <div id="detail-panel" class="bg-slate-900 border-l-4 border-cyan-500 border-y border-r border-slate-800 p-5 rounded-xl shadow-xl transition-all">
+    <div id="detail-panel" class="bg-slate-900 border-l-4 border-cyan-500 border-y border-r border-slate-800 p-5 rounded-xl shadow-xl transition-all min-h-[220px]">
       <div class="flex items-center justify-between">
         <div>
           <span class="text-xs font-mono text-cyan-400 uppercase font-bold tracking-wider" id="detail-badge">ETAPA ATUAL</span>
@@ -209,10 +209,11 @@
         </div>
         <div class="text-xs text-slate-400 font-mono" id="detail-window">0.00s - 1.00s</div>
       </div>
-      <p class="text-sm text-slate-300 mt-2" id="detail-desc">
+      <p class="text-sm text-slate-300 mt-2 leading-relaxed" id="detail-desc">
         Documentos em PDF (extração de layout por tamanho de fonte, tabelas via find_tables, imagens embutidas com OCR+Vision), planilhas XLSX (células mescladas, cabeçalhos multi-linha, múltiplas tabelas por aba), DOCX, TXT e HTML são normalizados no CanonicalDocument. Áudios são transcritos por Whisper (segmentação por pausas, agrupamento min/max). Vídeos passam por detecção de cenas (PySceneDetect), extração de keyframe (OpenCV), transcrição word-level (Whisper), OCR (Tesseract) e descrição visual (Claude Vision). Keyframes são salvos no MinIO.
       </p>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4" id="detail-tags">
+      <!-- flex-wrap garante que todas as tags (até 9 para Parse) apareçam sem corte -->
+      <div class="flex flex-wrap gap-2 mt-4" id="detail-tags">
         <!-- Injetado via JS -->
       </div>
     </div>
@@ -353,9 +354,10 @@
       detailWindow.textContent = stage.window;
       detailDesc.textContent = stage.desc;
 
-      detailTags.innerHTML = stage.tags.map(tag => 
-        `<div class="bg-slate-800/80 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono flex items-center gap-1.5">
-           <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${stage.color}"></span>
+      // flex-wrap: cada tag ocupa o espaço que precisa — sem corte independente da quantidade
+      detailTags.innerHTML = stage.tags.map(tag =>
+        `<div class="bg-slate-800/80 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono flex items-center gap-1.5 whitespace-nowrap">
+           <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${stage.color}"></span>
            <span>${tag}</span>
          </div>`
       ).join("");
@@ -408,10 +410,11 @@
         ctx.textBaseline = "middle";
         ctx.fillText(`${i + 1}`, cx, cy);
 
-        // Rótulo da Estação
+        // Rótulo da Estação — abreviações fixas para não sobrepor com 11px
+        const stageLabels = ["Parse", "Chunking", "Ingestão", "Transform.", "Busca RRF"];
         ctx.fillStyle = isCurrent ? stageColor : "#94a3b8";
         ctx.font = `${isCurrent ? "bold " : ""}11px sans-serif`;
-        ctx.fillText(STAGES_DATA[i].title.split(" ")[1], cx, cy + 34);
+        ctx.fillText(stageLabels[i], cx, cy + 34);
       }
 
       // Partículas voando entre hubs

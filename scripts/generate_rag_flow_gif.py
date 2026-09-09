@@ -1,196 +1,327 @@
 """
 Gerador de GIF Animado de 5 segundos do Fluxo RAG Multimodal.
 Etapas: Parse -> Chunking -> Ingestão/ACL -> Transformação -> Busca Híbrida/RRF.
+
+Correções v2:
+- Canvas 1200×680 (era 840×480): espaço suficiente para todo o texto
+- Cards 210px de largura (era 152px): sem truncamento
+- Fontes maiores: 20/15/13/11pt (era 18/14/12/10pt)
+- Sem truncamento de itens (era item[:20])
+- Painel inferior com layout de 3 colunas
+- draw_text_lines(): quebra de linha automática por largura máxima
 """
 
 import math
 import os
 from PIL import Image, ImageDraw, ImageFont
 
-WIDTH = 840
-HEIGHT = 480
-FPS = 15
-DURATION_SEC = 5
-TOTAL_FRAMES = FPS * DURATION_SEC  # 75 frames
+# ── Dimensões ────────────────────────────────────────────────────────────────
+WIDTH  = 1200
+HEIGHT = 680
+FPS    = 12                        # 12 fps → arquivo menor
+DURATION_SEC  = 5
+TOTAL_FRAMES  = FPS * DURATION_SEC # 60 frames
 
-# Cores do tema (Dark Cyberpunk / Tech Data Platform)
-BG_COLOR = (13, 17, 23)
-PANEL_BG = (22, 27, 34)
-BORDER_COLOR = (48, 54, 61)
-TEXT_WHITE = (240, 246, 252)
-TEXT_MUTED = (139, 148, 158)
-CYAN = (56, 189, 248)
-ORANGE = (251, 146, 60)
-PURPLE = (168, 85, 247)
-GREEN = (52, 211, 153)
-YELLOW = (250, 204, 21)
-BLUE = (96, 165, 250)
+# ── Paleta de Cores (Dark Cyberpunk) ─────────────────────────────────────────
+BG_COLOR    = (13,  17,  23)
+PANEL_BG    = (22,  27,  34)
+BORDER_COL  = (48,  54,  61)
+TEXT_WHITE  = (240, 246, 252)
+TEXT_MUTED  = (120, 130, 140)
+CYAN        = (56,  189, 248)
+ORANGE      = (251, 146, 60)
+PURPLE      = (168, 85,  247)
+GREEN       = (52,  211, 153)
+YELLOW      = (250, 204, 21)
+BLUE        = (96,  165, 250)
 
+# ── Dados dos Estágios ───────────────────────────────────────────────────────
 STAGES = [
     {
-        "title": "1. PARSE MULTIMODAL",
-        "time": "0.0s - 1.0s",
-        "color": CYAN,
-        "subtitle": "CanonicalDocument Model Unificado",
-        "items": ["• PDF Layout+Img+Tabelas", "• XLSX Merged+Multi-aba", "• DOCX / TXT / HTML", "• IMG OCR+Vision+MinIO", "• Audio Whisper+Pausas", "• Video Cenas+Whisper+OCR"]
+        "title":    "1. PARSE MULTIMODAL",
+        "short":    "Parse",
+        "time":     "0.0s – 1.0s",
+        "color":    CYAN,
+        "subtitle": "CanonicalDocument Unificado",
+        "items": [
+            "• PDF  Layout + Img + Tabelas",
+            "• XLSX Merged + Multi-aba",
+            "• DOCX / TXT / HTML",
+            "• IMG  OCR + Vision + MinIO",
+            "• Audio Whisper + Pausas",
+            "• Video Cenas + Whisper + OCR",
+        ],
     },
     {
-        "title": "2. CHUNKING ENGINE",
-        "time": "1.0s - 2.0s",
-        "color": ORANGE,
-        "subtitle": "Divisao Estrategica Hierarquica",
-        "items": ["• Parent-Child 1200/300 tokens", "• Recursivo UUIDv5 Determin.", "• Semantico Cosseno", "• Overlap 40-64 tokens", "• Multimodal Sync Chunks"]
+        "title":    "2. CHUNKING ENGINE",
+        "short":    "Chunking",
+        "time":     "1.0s – 2.0s",
+        "color":    ORANGE,
+        "subtitle": "Divisao Hierarquica Estrategica",
+        "items": [
+            "• Parent-Child  1200 / 300 tokens",
+            "• Recursivo UUIDv5 Deterministico",
+            "• Semantico por Cosseno",
+            "• Overlap  40 – 64 tokens",
+            "• Multimodal Sync Chunks",
+        ],
     },
     {
-        "title": "3. INGESTAO & ACL",
-        "time": "2.0s - 3.0s",
-        "color": GREEN,
+        "title":    "3. INGESTAO & ACL",
+        "short":    "Ingestao",
+        "time":     "2.0s – 3.0s",
+        "color":    GREEN,
         "subtitle": "Seguranca Fail-Closed Granular",
-        "items": ["• Tenant ID + ACL Principals", "• Pre-filtro Fail-Closed", "• SHA-256 Content Hash", "• Doc Registry (Postgres)", "• Delta-Reindex Incremental"]
+        "items": [
+            "• Tenant ID + ACL Principals",
+            "• Pre-filtro Fail-Closed",
+            "• SHA-256 Content Hash",
+            "• Doc Registry (Postgres)",
+            "• Delta-Reindex Incremental",
+        ],
     },
     {
-        "title": "4. TRANSFORMACAO",
-        "time": "3.0s - 4.0s",
-        "color": PURPLE,
+        "title":    "4. TRANSFORMACAO",
+        "short":    "Transform",
+        "time":     "3.0s – 4.0s",
+        "color":    PURPLE,
         "subtitle": "3 Indices em Paralelo",
-        "items": ["• BGE-M3 -> Qdrant Dense", "• BM25 -> Postgres tsvector", "• Graph RAG Neo4j/NetworkX", "• NER + Relacoes Regex", "• Embedding Cache+Dual-Write"]
+        "items": [
+            "• BGE-M3 -> Qdrant Dense",
+            "• BM25   -> Postgres tsvector",
+            "• Graph RAG Neo4j / NetworkX",
+            "• NER + Relacoes por Regex",
+            "• Embedding Cache + Dual-Write",
+        ],
     },
     {
-        "title": "5. BUSCA HIBRIDA",
-        "time": "4.0s - 5.0s",
-        "color": YELLOW,
+        "title":    "5. BUSCA HIBRIDA",
+        "short":    "Busca RRF",
+        "time":     "4.0s – 5.0s",
+        "color":    YELLOW,
         "subtitle": "RRF Ponderado + Rerank",
-        "items": ["• Query Router 5 intencoes", "• HyDE + Decomposicao", "• RRF Dense+BM25+Graph k=60", "• BGE-Reranker-v2-m3", "• Self-RAG Evaluator"]
-    }
+        "items": [
+            "• Query Router  5 intencoes",
+            "• HyDE + Query Decomposition",
+            "• RRF Dense + BM25 + Graph k=60",
+            "• BGE-Reranker-v2-m3",
+            "• Self-RAG Evaluator",
+        ],
+    },
 ]
 
-def try_load_font(size):
-    try:
-        for font_name in ["segoeui.ttf", "arial.ttf", "consola.ttf"]:
-            font_path = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", font_name)
-            if os.path.exists(font_path):
-                return ImageFont.truetype(font_path, size)
-    except Exception:
-        pass
+# ── Layout de Cards ───────────────────────────────────────────────────────────
+CARD_W   = 210
+CARD_H   = 290
+SPACING  =  10
+TOTAL_CARDS_W = 5 * CARD_W + 4 * SPACING   # 1090
+START_X  = (WIDTH - TOTAL_CARDS_W) // 2     # 55
+
+TOP_Y    = 110   # topo dos cards
+BOT_Y    = 415   # topo do painel inferior
+BOT_H    = 250   # altura do painel inferior
+
+# ── Fontes ───────────────────────────────────────────────────────────────────
+def try_font(size: int) -> ImageFont.FreeTypeFont:
+    """Tenta carregar Segoe UI, Arial ou Consolas; fallback para bitmap."""
+    for name in ["segoeui.ttf", "arial.ttf", "consola.ttf", "calibri.ttf"]:
+        path = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", name)
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                pass
     return ImageFont.load_default()
 
-FONT_TITLE = try_load_font(18)
-FONT_BOLD = try_load_font(14)
-FONT_REGULAR = try_load_font(12)
-FONT_SMALL = try_load_font(10)
+FONT_H1  = try_font(20)   # título do header
+FONT_H2  = try_font(15)   # título dos cards
+FONT_REG = try_font(13)   # corpo
+FONT_SM  = try_font(11)   # items e labels pequenos
 
-def draw_header(draw, current_time, active_idx):
-    draw.rectangle([(0, 0), (WIDTH, 48)], fill=(18, 22, 28))
-    draw.text((20, 12), "ARQUITETURA RAG MULTIMODAL — FLUXO COMPLETO (5s)", fill=TEXT_WHITE, font=FONT_TITLE)
-    time_str = f"TIMELINE: {current_time:04.2f}s / 5.00s"
-    draw.text((WIDTH - 210, 14), time_str, fill=YELLOW, font=FONT_BOLD)
-    draw.line([(0, 48), (WIDTH, 48)], fill=BORDER_COLOR, width=1)
+# ── Helpers de Texto ──────────────────────────────────────────────────────────
+def text_w(draw: ImageDraw.Draw, text: str, font) -> int:
+    """Largura em pixels de 'text' com a font dada."""
+    bb = draw.textbbox((0, 0), text, font=font)
+    return bb[2] - bb[0]
 
-def draw_progress_bar(draw, progress, active_idx):
-    y_bar = 60
-    bar_h = 8
-    draw.rounded_rectangle([(20, y_bar), (WIDTH - 20, y_bar + bar_h)], radius=4, fill=(33, 38, 45))
-    fill_w = max(10, int((WIDTH - 40) * progress))
-    current_color = STAGES[active_idx]["color"]
-    draw.rounded_rectangle([(20, y_bar), (20 + fill_w, y_bar + bar_h)], radius=4, fill=current_color)
-
-    step_w = (WIDTH - 40) / 5
-    for i, stage in enumerate(STAGES):
-        cx = 20 + i * step_w + step_w / 2
-        is_active = (i == active_idx)
-        is_past = (i < active_idx)
-        badge_color = stage["color"] if (is_active or is_past) else (60, 68, 78)
-        
-        draw.ellipse([(cx - 6, y_bar - 2), (cx + 6, y_bar + bar_h + 2)], fill=badge_color)
-        
-        label = stage["title"].split(". ")[1].split(" ")[0]
-        label_color = TEXT_WHITE if is_active else (TEXT_MUTED if not is_past else (200, 205, 215))
-        draw.text((cx - 24, y_bar + 14), label, fill=label_color, font=FONT_SMALL)
-
-def draw_stage_cards(draw, active_idx, frame_idx):
-    top_y = 95
-    card_w = 152
-    card_h = 235
-    spacing = 8
-    start_x = 20
-
-    for i, stage in enumerate(STAGES):
-        x = start_x + i * (card_w + spacing)
-        is_active = (i == active_idx)
-        
-        if is_active:
-            bg = (28, 36, 48)
-            border = stage["color"]
-            border_w = 2
+def draw_text_lines(draw, x, y, text, font, fill, max_w, line_h):
+    """
+    Escreve texto com quebra automática de linha quando ultrapassa max_w.
+    Retorna o y final.
+    """
+    words = text.split()
+    line  = ""
+    for word in words:
+        candidate = (line + " " + word).strip()
+        if text_w(draw, candidate, font) <= max_w:
+            line = candidate
         else:
-            bg = PANEL_BG
-            border = BORDER_COLOR
-            border_w = 1
+            if line:
+                draw.text((x, y), line, fill=fill, font=font)
+                y += line_h
+            line = word
+    if line:
+        draw.text((x, y), line, fill=fill, font=font)
+        y += line_h
+    return y
 
-        draw.rounded_rectangle([(x, top_y), (x + card_w, top_y + card_h)], radius=8, fill=bg, outline=border, width=border_w)
-        draw.rectangle([(x, top_y), (x + card_w, top_y + 32)], fill=(35, 43, 56) if is_active else (25, 30, 38))
-        draw.text((x + 8, top_y + 8), stage["title"][:14], fill=stage["color"] if is_active else TEXT_MUTED, font=FONT_BOLD)
-        draw.text((x + 8, top_y + 38), stage["time"], fill=YELLOW if is_active else TEXT_MUTED, font=FONT_SMALL)
-        
-        y_text = top_y + 56
+# ── Seções de Desenho ─────────────────────────────────────────────────────────
+
+def draw_header(draw: ImageDraw.Draw, current_time: float, active_idx: int) -> None:
+    # Fundo do cabeçalho
+    draw.rectangle([(0, 0), (WIDTH, 52)], fill=(18, 22, 28))
+    draw.text((20, 14), "ARQUITETURA RAG MULTIMODAL — FLUXO COMPLETO (5s)",
+              fill=TEXT_WHITE, font=FONT_H1)
+    stage_label = f"ETAPA {active_idx + 1}/5: {STAGES[active_idx]['title']}"
+    sw = text_w(draw, stage_label, FONT_REG)
+    draw.text((WIDTH - sw - 150, 18), stage_label,
+              fill=STAGES[active_idx]["color"], font=FONT_REG)
+    time_str = f"{current_time:04.2f}s"
+    draw.text((WIDTH - 90, 14), time_str, fill=YELLOW, font=FONT_H2)
+    draw.line([(0, 52), (WIDTH, 52)], fill=BORDER_COL, width=1)
+
+
+def draw_progress(draw: ImageDraw.Draw, progress: float, active_idx: int) -> None:
+    y0, h = 62, 9
+    draw.rounded_rectangle([(START_X, y0), (WIDTH - START_X, y0 + h)],
+                            radius=4, fill=(33, 38, 45))
+    fill_w = max(12, int((WIDTH - 2 * START_X) * progress))
+    draw.rounded_rectangle([(START_X, y0), (START_X + fill_w, y0 + h)],
+                            radius=4, fill=STAGES[active_idx]["color"])
+
+    step_w = (WIDTH - 2 * START_X) / 5
+    for i, stage in enumerate(STAGES):
+        cx  = START_X + i * step_w + step_w / 2
+        col = stage["color"] if i <= active_idx else (55, 62, 72)
+        r   = 7 if i == active_idx else 5
+        draw.ellipse([(cx - r, y0 - 1), (cx + r, y0 + h + 1)], fill=col)
+        label_col = TEXT_WHITE if i == active_idx else TEXT_MUTED
+        lw = text_w(draw, stage["short"], FONT_SM)
+        draw.text((cx - lw / 2, y0 + h + 5), stage["short"],
+                  fill=label_col, font=FONT_SM)
+
+
+def draw_cards(draw: ImageDraw.Draw, active_idx: int, frame_idx: int) -> None:
+    for i, stage in enumerate(STAGES):
+        x         = START_X + i * (CARD_W + SPACING)
+        is_active = i == active_idx
+
+        bg     = (28, 36, 50) if is_active else PANEL_BG
+        border = stage["color"] if is_active else BORDER_COL
+        bw     = 2 if is_active else 1
+
+        # Corpo do card
+        draw.rounded_rectangle([(x, TOP_Y), (x + CARD_W, TOP_Y + CARD_H)],
+                                radius=9, fill=bg, outline=border, width=bw)
+
+        # Cabeçalho do card
+        hdr_h = 36
+        hdr_fill = (35, 44, 58) if is_active else (24, 29, 38)
+        draw.rounded_rectangle([(x, TOP_Y), (x + CARD_W, TOP_Y + hdr_h)],
+                                radius=9, fill=hdr_fill, outline=border, width=bw)
+
+        # Título (duas linhas se necessário)
+        t_color = stage["color"] if is_active else TEXT_MUTED
+        title   = stage["title"]
+        # Divide em linha 1 (ex "1. PARSE") e linha 2 (ex "MULTIMODAL")
+        parts = title.split(" ", 2)
+        line1 = " ".join(parts[:2])
+        line2 = parts[2] if len(parts) > 2 else ""
+        draw.text((x + 8, TOP_Y + 5), line1, fill=t_color, font=FONT_SM)
+        if line2:
+            draw.text((x + 8, TOP_Y + 19), line2, fill=t_color, font=FONT_SM)
+
+        # Faixa de tempo
+        draw.text((x + 8, TOP_Y + hdr_h + 4), stage["time"],
+                  fill=YELLOW if is_active else TEXT_MUTED, font=FONT_SM)
+
+        # Itens
+        y_item = TOP_Y + hdr_h + 22
+        item_col = TEXT_WHITE if is_active else (105, 115, 128)
         for item in stage["items"]:
-            item_text = item if len(item) < 22 else item[:20] + ".."
-            item_color = TEXT_WHITE if is_active else (110, 118, 129)
-            draw.text((x + 8, y_text), item_text, fill=item_color, font=FONT_SMALL)
-            y_text += 22
+            draw_text_lines(draw, x + 8, y_item, item,
+                            FONT_SM, item_col,
+                            max_w=CARD_W - 16, line_h=16)
+            y_item += 16
+            if y_item > TOP_Y + CARD_H - 22:
+                break   # segurança: nunca sai do card
 
+        # Mini barra de progresso pulsante no card ativo
         if is_active:
-            pulse = (frame_idx % 15) / 15.0
-            pulse_y = top_y + card_h - 14
-            draw.rounded_rectangle([(x + 8, pulse_y), (x + card_w - 8, pulse_y + 6)], radius=3, fill=(40, 50, 70))
-            active_fill_w = int((card_w - 16) * pulse)
-            draw.rounded_rectangle([(x + 8, pulse_y), (x + 8 + active_fill_w, pulse_y + 6)], radius=3, fill=stage["color"])
+            pulse    = (frame_idx % 12) / 12.0
+            pb_y     = TOP_Y + CARD_H - 14
+            draw.rounded_rectangle([(x + 8, pb_y), (x + CARD_W - 8, pb_y + 6)],
+                                   radius=3, fill=(38, 48, 66))
+            fw = int((CARD_W - 16) * pulse)
+            if fw > 0:
+                draw.rounded_rectangle([(x + 8, pb_y), (x + 8 + fw, pb_y + 6)],
+                                       radius=3, fill=stage["color"])
 
-def draw_bottom_active_details(draw, active_idx, frame_idx):
-    bot_y = 345
-    bot_h = 120
+
+def draw_detail_panel(draw: ImageDraw.Draw, active_idx: int, frame_idx: int) -> None:
     stage = STAGES[active_idx]
-    
-    draw.rounded_rectangle([(20, bot_y), (WIDTH - 20, bot_y + bot_h)], radius=8, fill=(18, 24, 34), outline=stage["color"], width=2)
-    draw.rectangle([(20, bot_y), (28, bot_y + bot_h)], fill=stage["color"])
-    
-    draw.text((40, bot_y + 10), f"EXECUTANDO AGORA: {stage['title']}  ({stage['time']})", fill=stage["color"], font=FONT_BOLD)
-    draw.text((40, bot_y + 30), stage["subtitle"], fill=TEXT_MUTED, font=FONT_REGULAR)
-    
-    col1_x = 40
-    col2_x = 430
-    
-    items = stage["items"]
-    for idx, it in enumerate(items[:3]):
-        draw.text((col1_x, bot_y + 54 + idx * 20), it, fill=TEXT_WHITE, font=FONT_REGULAR)
-    for idx, it in enumerate(items[3:]):
-        draw.text((col2_x, bot_y + 54 + idx * 20), it, fill=TEXT_WHITE, font=FONT_REGULAR)
-        
-    phase = (frame_idx % 15) / 15.0
-    for p in range(5):
-        px = 750 + int(math.sin(phase * 6.28 + p) * 20) + p * 8
-        py = bot_y + 25 + p * 15
-        draw.ellipse([(px - 4, py - 4), (px + 4, py + 4)], fill=stage["color"])
+    col   = stage["color"]
 
-def generate_gif(output_path):
-    print(f"Gerando {TOTAL_FRAMES} frames...")
+    # Borda e fundo
+    draw.rounded_rectangle([(20, BOT_Y), (WIDTH - 20, BOT_Y + BOT_H)],
+                            radius=9, fill=(16, 22, 32), outline=col, width=2)
+    # Barra lateral esquerda colorida
+    draw.rounded_rectangle([(20, BOT_Y), (30, BOT_Y + BOT_H)],
+                            radius=4, fill=col)
+
+    # Cabeçalho do painel
+    header_txt = f"EXECUTANDO:  {stage['title']}    ({stage['time']})"
+    draw.text((42, BOT_Y + 10), header_txt, fill=col, font=FONT_H2)
+    draw.text((42, BOT_Y + 30), stage["subtitle"], fill=TEXT_MUTED, font=FONT_REG)
+
+    # Linha separadora
+    draw.line([(42, BOT_Y + 50), (WIDTH - 30, BOT_Y + 50)],
+              fill=BORDER_COL, width=1)
+
+    # Items em 3 colunas
+    items     = stage["items"]
+    n         = len(items)
+    col_count = 3
+    col_w     = (WIDTH - 80) // col_count   # ~360px each
+    col_xs    = [42 + c * col_w for c in range(col_count)]
+
+    for idx, it in enumerate(items):
+        col_i = idx % col_count
+        row_i = idx // col_count
+        ix    = col_xs[col_i]
+        iy    = BOT_Y + 58 + row_i * 22
+        draw.text((ix, iy), it, fill=TEXT_WHITE, font=FONT_REG)
+
+    # Partículas animadas no canto
+    phase = (frame_idx % 12) / 12.0
+    for p in range(6):
+        px = WIDTH - 90 + int(math.sin(phase * 6.28 + p * 1.05) * 22)
+        py = BOT_Y + 70 + p * 22
+        r  = 5 - (p % 2)
+        draw.ellipse([(px - r, py - r), (px + r, py + r)], fill=col)
+
+
+# ── Geração dos Frames ────────────────────────────────────────────────────────
+
+def generate_gif(output_path: str) -> None:
+    print(f"Gerando {TOTAL_FRAMES} frames  ({WIDTH}×{HEIGHT}px, {FPS}fps)…")
     frames = []
-    
+
     for frame_idx in range(TOTAL_FRAMES):
         current_time = (frame_idx / TOTAL_FRAMES) * DURATION_SEC
-        progress = frame_idx / float(TOTAL_FRAMES)
-        active_idx = min(int(current_time), 4)
-        
-        img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
+        progress     = frame_idx / float(TOTAL_FRAMES)
+        active_idx   = min(int(current_time), 4)
+
+        img  = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
         draw = ImageDraw.Draw(img)
-        
+
         draw_header(draw, current_time, active_idx)
-        draw_progress_bar(draw, progress, active_idx)
-        draw_stage_cards(draw, active_idx, frame_idx)
-        draw_bottom_active_details(draw, active_idx, frame_idx)
-        
+        draw_progress(draw, progress, active_idx)
+        draw_cards(draw, active_idx, frame_idx)
+        draw_detail_panel(draw, active_idx, frame_idx)
+
         frames.append(img)
-        
+
     print(f"Salvando GIF em: {output_path}")
     frames[0].save(
         output_path,
@@ -198,11 +329,12 @@ def generate_gif(output_path):
         append_images=frames[1:],
         duration=int(1000 / FPS),
         loop=0,
-        optimize=True
+        optimize=True,
     )
-    print("GIF gerado com sucesso!")
+    size_kb = os.path.getsize(output_path) // 1024
+    print(f"GIF gerado com sucesso! ({size_kb} KB)")
+
 
 if __name__ == "__main__":
     os.makedirs("docs", exist_ok=True)
-    out_file = os.path.join("docs", "rag_flow_5s.gif")
-    generate_gif(out_file)
+    generate_gif(os.path.join("docs", "rag_flow_5s.gif"))
