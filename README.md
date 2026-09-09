@@ -142,7 +142,7 @@ As decisões de engenharia do sistema estão formalmente documentadas em Archite
 
 ```bash
 # Clone o repositório
-git clone https://github.com/cieco/arquiteturaRAG.git
+git clone https://github.com/ciecolopes01/arquiteturaRAG.git
 cd arquiteturaRAG
 
 # Crie e ative o ambiente virtual
