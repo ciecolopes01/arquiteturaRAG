@@ -113,89 +113,99 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
 
       <!-- Card 1: Parse -->
-      <div id="card-0" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-cyan-500/50" onclick="jumpTo(0.5)">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-mono font-bold text-cyan-400">0.0s - 1.0s</span>
-          <span class="text-lg">📄</span>
+      <div id="card-0" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 min-h-[270px] flex flex-col justify-between transition-all duration-200 cursor-pointer hover:border-cyan-500/50" onclick="jumpTo(0.5)">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-cyan-400">0.0s - 1.0s</span>
+            <span class="text-lg">📄</span>
+          </div>
+          <h3 class="font-bold text-sm text-white mb-1">1. Parse Multimodal</h3>
+          <p class="text-xs text-slate-400 mb-3">→ CanonicalDocument (SHA-256 + ACL)</p>
+          <ul class="text-xs space-y-1.5 text-slate-300 font-sans">
+            <li>• <span class="font-semibold text-cyan-300">PDF</span> <span class="text-slate-400 font-mono text-[11px]">PyMuPDF (fitz)</span> Layout+Img+Tab</li>
+            <li>• <span class="font-semibold text-cyan-300">XLSX</span> <span class="text-slate-400 font-mono text-[11px]">openpyxl</span> Merged+Multi-aba</li>
+            <li>• <span class="font-semibold text-cyan-300">DOCX/TXT/HTML</span> <span class="text-slate-400 font-mono text-[11px]">python-docx / bs4</span></li>
+            <li>• <span class="font-semibold text-cyan-300">IMG</span> <span class="text-slate-400 font-mono text-[11px]">Tesseract + Claude Vision</span></li>
+            <li>• <span class="font-semibold text-cyan-300">Áudio</span> <span class="text-slate-400 font-mono text-[11px]">faster-whisper</span> +Pausas</li>
+            <li>• <span class="font-semibold text-cyan-300">Vídeo</span> <span class="text-slate-400 font-mono text-[11px]">PySceneDetect+CV2+Whisper+OCR</span></li>
+          </ul>
         </div>
-        <h3 class="font-bold text-sm text-white mb-1">1. Parse Multimodal</h3>
-        <p class="text-xs text-slate-400 mb-3">→ CanonicalDocument (SHA-256 + ACL)</p>
-        <ul class="text-xs space-y-1.5 text-slate-300">
-          <li>• <span class="font-semibold text-cyan-300">PDF</span> <span class="text-slate-500 font-mono text-[10px]">PyMuPDF (fitz)</span> Layout+Img+Tabelas</li>
-          <li>• <span class="font-semibold text-cyan-300">XLSX</span> <span class="text-slate-500 font-mono text-[10px]">openpyxl</span> Merged+Multi-aba</li>
-          <li>• <span class="font-semibold text-cyan-300">DOCX/TXT/HTML</span> <span class="text-slate-500 font-mono text-[10px]">python-docx / bs4</span></li>
-          <li>• <span class="font-semibold text-cyan-300">IMG</span> <span class="text-slate-500 font-mono text-[10px]">Tesseract + Claude Vision</span> + MinIO</li>
-          <li>• <span class="font-semibold text-cyan-300">Áudio</span> <span class="text-slate-500 font-mono text-[10px]">faster-whisper</span> +Pausas seg.</li>
-          <li>• <span class="font-semibold text-cyan-300">Vídeo</span> <span class="text-slate-500 font-mono text-[10px]">PySceneDetect+CV2+Whisper+OCR</span></li>
-        </ul>
       </div>
 
       <!-- Card 2: Chunking -->
-      <div id="card-1" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-orange-500/50" onclick="jumpTo(1.5)">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-mono font-bold text-orange-400">1.0s - 2.0s</span>
-          <span class="text-lg">🧩</span>
+      <div id="card-1" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 min-h-[270px] flex flex-col justify-between transition-all duration-200 cursor-pointer hover:border-orange-500/50" onclick="jumpTo(1.5)">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-orange-400">1.0s - 2.0s</span>
+            <span class="text-lg">🧩</span>
+          </div>
+          <h3 class="font-bold text-sm text-white mb-1">2. Chunking Engine</h3>
+          <p class="text-xs text-slate-400 mb-3">Divisão Estratégica</p>
+          <ul class="text-xs space-y-1.5 text-slate-300 font-sans">
+            <li>• <span class="font-semibold text-orange-300">Parent-Child</span> 1200/300tk</li>
+            <li>• <span class="font-semibold text-orange-300">Recursivo</span> UUIDv5 det.</li>
+            <li>• <span class="font-semibold text-orange-300">Semântico</span> Cosseno</li>
+            <li>• <span class="font-semibold text-orange-300">Overlap</span> 40-64 tokens</li>
+            <li>• <span class="font-semibold text-orange-300">Multimodal</span> Sync chunks</li>
+          </ul>
         </div>
-        <h3 class="font-bold text-sm text-white mb-1">2. Chunking Engine</h3>
-        <p class="text-xs text-slate-400 mb-3">Divisão Estratégica</p>
-        <ul class="text-xs space-y-1 text-slate-300">
-          <li>• <span class="font-semibold text-orange-300">Parent-Child</span> 1200/300tk</li>
-          <li>• <span class="font-semibold text-orange-300">Recursivo</span> UUIDv5 det.</li>
-          <li>• <span class="font-semibold text-orange-300">Semântico</span> Cosseno</li>
-          <li>• <span class="font-semibold text-orange-300">Overlap</span> 40-64 tokens</li>
-          <li>• <span class="font-semibold text-orange-300">Multimodal</span> Sync chunks</li>
-        </ul>
       </div>
 
       <!-- Card 3: Ingestão & ACL -->
-      <div id="card-2" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-emerald-500/50" onclick="jumpTo(2.5)">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-mono font-bold text-emerald-400">2.0s - 3.0s</span>
-          <span class="text-lg">🛡️</span>
+      <div id="card-2" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 min-h-[270px] flex flex-col justify-between transition-all duration-200 cursor-pointer hover:border-emerald-500/50" onclick="jumpTo(2.5)">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-emerald-400">2.0s - 3.0s</span>
+            <span class="text-lg">🛡️</span>
+          </div>
+          <h3 class="font-bold text-sm text-white mb-1">3. Ingestão &amp; ACL</h3>
+          <p class="text-xs text-slate-400 mb-3">Segurança Fail-Closed</p>
+          <ul class="text-xs space-y-1.5 text-slate-300 font-sans">
+            <li>• <span class="font-semibold text-emerald-300">Tenant ID</span> Tagging</li>
+            <li>• <span class="font-semibold text-emerald-300">ACL</span> Pré-filtro Fail-Closed</li>
+            <li>• <span class="font-semibold text-emerald-300">SHA-256</span> Content Hash</li>
+            <li>• <span class="font-semibold text-emerald-300">Doc Registry</span> Postgres</li>
+            <li>• <span class="font-semibold text-emerald-300">Δ-Reindex</span> Incremental</li>
+          </ul>
         </div>
-        <h3 class="font-bold text-sm text-white mb-1">3. Ingestão &amp; ACL</h3>
-        <p class="text-xs text-slate-400 mb-3">Segurança Fail-Closed</p>
-        <ul class="text-xs space-y-1 text-slate-300">
-          <li>• <span class="font-semibold text-emerald-300">Tenant ID</span> Tagging</li>
-          <li>• <span class="font-semibold text-emerald-300">ACL</span> Pré-filtro Fail-Closed</li>
-          <li>• <span class="font-semibold text-emerald-300">SHA-256</span> Content Hash</li>
-          <li>• <span class="font-semibold text-emerald-300">Doc Registry</span> Postgres</li>
-          <li>• <span class="font-semibold text-emerald-300">Δ-Reindex</span> Incremental</li>
-        </ul>
       </div>
 
       <!-- Card 4: Transformação -->
-      <div id="card-3" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-purple-500/50" onclick="jumpTo(3.5)">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-mono font-bold text-purple-400">3.0s - 4.0s</span>
-          <span class="text-lg">⚡</span>
+      <div id="card-3" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 min-h-[270px] flex flex-col justify-between transition-all duration-200 cursor-pointer hover:border-purple-500/50" onclick="jumpTo(3.5)">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-purple-400">3.0s - 4.0s</span>
+            <span class="text-lg">⚡</span>
+          </div>
+          <h3 class="font-bold text-sm text-white mb-1">4. Transformação</h3>
+          <p class="text-xs text-slate-400 mb-3">3 Índices em Paralelo</p>
+          <ul class="text-xs space-y-1.5 text-slate-300 font-sans">
+            <li>• <span class="font-semibold text-purple-300">BGE-M3</span> Qdrant Dense</li>
+            <li>• <span class="font-semibold text-purple-300">BM25</span> Postgres tsvector</li>
+            <li>• <span class="font-semibold text-purple-300">Graph RAG</span> Neo4j/NetworkX</li>
+            <li>• <span class="font-semibold text-purple-300">Embedding</span> Cache</li>
+            <li>• <span class="font-semibold text-purple-300">Dual-Write</span> Atômico</li>
+          </ul>
         </div>
-        <h3 class="font-bold text-sm text-white mb-1">4. Transformação</h3>
-        <p class="text-xs text-slate-400 mb-3">3 Índices em Paralelo</p>
-        <ul class="text-xs space-y-1 text-slate-300">
-          <li>• <span class="font-semibold text-purple-300">BGE-M3</span> Qdrant Dense</li>
-          <li>• <span class="font-semibold text-purple-300">BM25</span> Postgres tsvector</li>
-          <li>• <span class="font-semibold text-purple-300">Graph RAG</span> Neo4j/NetworkX</li>
-          <li>• <span class="font-semibold text-purple-300">Embedding</span> Cache</li>
-          <li>• <span class="font-semibold text-purple-300">Dual-Write</span> Atômico</li>
-        </ul>
       </div>
 
       <!-- Card 5: Busca Híbrida & RRF -->
-      <div id="card-4" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:border-amber-500/50" onclick="jumpTo(4.5)">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-mono font-bold text-amber-400">4.0s - 5.0s</span>
-          <span class="text-lg">🎯</span>
+      <div id="card-4" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 min-h-[270px] flex flex-col justify-between transition-all duration-200 cursor-pointer hover:border-amber-500/50" onclick="jumpTo(4.5)">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono font-bold text-amber-400">4.0s - 5.0s</span>
+            <span class="text-lg">🎯</span>
+          </div>
+          <h3 class="font-bold text-sm text-white mb-1">5. Busca Híbrida</h3>
+          <p class="text-xs text-slate-400 mb-3">RRF Ponderado + Rerank</p>
+          <ul class="text-xs space-y-1.5 text-slate-300 font-sans">
+            <li>• <span class="font-semibold text-amber-300">Query Router</span> 5 intenções</li>
+            <li>• <span class="font-semibold text-amber-300">HyDE</span> + Decomposição</li>
+            <li>• <span class="font-semibold text-amber-300">RRF</span> Dense+BM25+Graph</li>
+            <li>• <span class="font-semibold text-amber-300">BGE-Reranker-v2</span></li>
+            <li>• <span class="font-semibold text-amber-300">Self-RAG</span> Eval</li>
+          </ul>
         </div>
-        <h3 class="font-bold text-sm text-white mb-1">5. Busca Híbrida</h3>
-        <p class="text-xs text-slate-400 mb-3">RRF Ponderado + Rerank</p>
-        <ul class="text-xs space-y-1 text-slate-300">
-          <li>• <span class="font-semibold text-amber-300">Query Router</span> 5 intenções</li>
-          <li>• <span class="font-semibold text-amber-300">HyDE</span> + Decomposição</li>
-          <li>• <span class="font-semibold text-amber-300">RRF</span> Dense+BM25+Graph</li>
-          <li>• <span class="font-semibold text-amber-300">BGE-Reranker-v2</span></li>
-          <li>• <span class="font-semibold text-amber-300">Self-RAG</span> Eval</li>
-        </ul>
       </div>
 
     </div>
